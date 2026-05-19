@@ -227,14 +227,12 @@ const CaseForm = ({ initial, lawyers, onSave, onClose }) => {
   const analyzeContract = async (file) => {
     setAnalyzing(true);
     try {
-      const isPDF = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
-      const isWord = file.name.toLowerCase().endsWith('.docx') || file.name.toLowerCase().endsWith('.doc');
-      const isTxt = file.name.toLowerCase().endsWith('.txt');
+      const isPDF  = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+      const isDocx = file.name.toLowerCase().endsWith('.docx') || file.name.toLowerCase().endsWith('.doc');
 
       let messages = [];
 
       if (isPDF) {
-        // PDF: base64 olarak Claude'a gönder
         const base64 = await new Promise(resolve => {
           const r = new FileReader();
           r.onload = e => resolve(e.target.result.split(',')[1]);
@@ -244,11 +242,21 @@ const CaseForm = ({ initial, lawyers, onSave, onClose }) => {
           role: 'user',
           content: [
             { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 }},
-            { type: 'text', text: `Bu hukuki belgeyi analiz et. Sadece aşağıdaki JSON'u döndür, başka hiçbir şey yazma:\n{"title":"dava başlığı","client":"müvekkil adı","plaintiff":"davacı","defendant":"davalı","type":"dava türü (${CASE_TYPES.join('/')})","expectedFee":"vekalet ücreti rakam","caseValue":"dava değeri rakam","notes":"kısa özet"}` }
+            { type: 'text', text: `Bu hukuki belgeyi analiz et. Sadece aşağıdaki JSON'u döndür:\n{"title":"dava başlığı","client":"müvekkil adı","plaintiff":"davacı","defendant":"davalı","type":"dava türü (${CASE_TYPES.join('/')})","expectedFee":"vekalet ücreti sadece rakam","caseValue":"dava değeri sadece rakam","notes":"kısa özet"}` }
           ]
         }];
+      } else if (isDocx) {
+        // Mammoth ile Word → HTML → metin
+        const mammoth = await import('mammoth');
+        const arrayBuffer = await file.arrayBuffer();
+        const result = await mammoth.extractRawText({ arrayBuffer });
+        const text = result.value || '';
+        messages = [{
+          role: 'user',
+          content: `Aşağıdaki hukuki belgeyi analiz et ve sadece bu JSON'u döndür, başka hiçbir şey yazma:\n{"title":"dava başlığı","client":"müvekkil","plaintiff":"davacı","defendant":"davalı","type":"dava türü (${CASE_TYPES.join('/')})","expectedFee":"vekalet ücreti rakam","caseValue":"dava değeri rakam","notes":"özet"}\n\nBelge:\n${text.substring(0, 6000)}`
+        }];
       } else {
-        // Word/TXT: metin olarak oku
+        // TXT veya diğer
         const text = await new Promise(resolve => {
           const r = new FileReader();
           r.onload = e => resolve(e.target.result);
@@ -256,7 +264,7 @@ const CaseForm = ({ initial, lawyers, onSave, onClose }) => {
         });
         messages = [{
           role: 'user',
-          content: `Aşağıdaki hukuki belgeyi analiz et ve sadece bu JSON'u döndür:\n{"title":"dava başlığı","client":"müvekkil","plaintiff":"davacı","defendant":"davalı","type":"dava türü","expectedFee":"ücret rakam","caseValue":"değer rakam","notes":"özet"}\n\nBelge:\n${text.substring(0, 6000)}`
+          content: `Aşağıdaki belgeyi analiz et ve sadece JSON döndür:\n{"title":"","client":"","plaintiff":"","defendant":"","type":"","expectedFee":"","caseValue":"","notes":""}\n\nBelge:\n${text.substring(0, 6000)}`
         }];
       }
 
@@ -271,12 +279,12 @@ const CaseForm = ({ initial, lawyers, onSave, onClose }) => {
         body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 800, messages })
       });
 
-      if (!res.ok) throw new Error('API hatası: ' + res.status);
+      if (!res.ok) throw new Error('API: ' + res.status);
       const data = await res.json();
       const text2 = data.content?.filter(b => b.type === 'text').map(b => b.text).join('') || '';
       const clean = text2.replace(/```json|```/g, '').trim();
-
       const parsed = JSON.parse(clean);
+
       setForm(p => ({
         ...p,
         title:       parsed.title       || p.title,
@@ -288,9 +296,10 @@ const CaseForm = ({ initial, lawyers, onSave, onClose }) => {
         caseValue:   parsed.caseValue   ? String(parsed.caseValue).replace(/\D/g,'')   : p.caseValue,
         notes:       parsed.notes       || p.notes,
       }));
+
     } catch(e) {
       console.error('Analiz hatası:', e);
-      alert('AI analiz sırasında hata oluştu. Lütfen tekrar deneyin.');
+      alert('AI analiz hatası: ' + e.message);
     }
     setAnalyzing(false);
   };
