@@ -619,8 +619,9 @@ function LoginScreen({ onLogin }) {
           options: { data: { full_name: name } }
         });
         if (e) throw e;
-        setInfo("Kayıt başarılı! Giriş yapabilirsiniz.");
+        setInfo("✅ Kayıt başarılı! E-posta adresinize bir onay linki gönderdik. Lütfen e-postanızı kontrol edin ve linke tıklayarak hesabınızı aktif edin.");
         setMode("login");
+        setPassword("");
       } else {
         const { error: e } = await supabase.auth.signInWithPassword({ email, password });
         if (e) throw e;
