@@ -619,7 +619,7 @@ function LoginScreen({ onLogin }) {
           options: { data: { full_name: name } }
         });
         if (e) throw e;
-        setInfo("✅ Kayıt başarılı! E-posta adresinize bir onay linki gönderdik. Lütfen e-postanızı kontrol edin ve linke tıklayarak hesabınızı aktif edin.");
+        setInfo("✅ Kayıt başarılı! Şimdi giriş yapabilirsiniz.");
         setMode("login");
         setPassword("");
       } else {
@@ -627,7 +627,15 @@ function LoginScreen({ onLogin }) {
         if (e) throw e;
       }
     } catch (e) {
-      setError(e.message === "Invalid login credentials" ? "E-posta veya şifre hatalı." : e.message);
+      if(e.message?.includes("User already registered") || e.message?.includes("already registered")) {
+        setError("Bu e-posta adresi zaten kayıtlı. Giriş yapın veya farklı bir e-posta kullanın.");
+      } else if(e.message?.includes("Invalid login credentials")) {
+        setError("E-posta veya şifre hatalı.");
+      } else if(e.message?.includes("Email not confirmed")) {
+        setError("E-posta adresiniz henüz onaylanmamış. Lütfen gelen kutunuzu kontrol edin.");
+      } else {
+        setError(e.message);
+      }
     }
     setLoading(false);
   };
