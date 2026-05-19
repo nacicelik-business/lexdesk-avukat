@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { fetchAll, insertRow, updateRow, deleteRow } from "./supabase.js";
+import { fetchAll, insertRow, updateRow, deleteRow, supabase } from "./supabase.js";
 
 // ─── CONSTANTS ─────────────────────────────────────────────────────
 const CASE_STAGES = ["Başvuru / Kabul","Hazırlık","Dava Açıldı","Tensip Bekleniyor","İlk Duruşma","Delil / Keşif","Bilirkişi","Son Duruşma","Karar Bekleniyor","Kesinleşti","İcra Aşaması","Kapandı"];
@@ -594,9 +594,285 @@ const ClientReport = ({ client, cases, incomes, onClose }) => {
 };
 
 // ══════════════════════════════════════════════════════════════════
+// AUTH BİLEŞENLERİ
+// ══════════════════════════════════════════════════════════════════
+
+// ─── GİRİŞ EKRANI ─────────────────────────────────────────────────
+function LoginScreen({ onLogin }) {
+  const [mode, setMode] = useState("login"); // login | register
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
+
+  const handle = async () => {
+    if (!email || !password) { setError("E-posta ve şifre gerekli."); return; }
+    if (mode === "register" && !name) { setError("Ad Soyad gerekli."); return; }
+    setLoading(true); setError(""); setInfo("");
+    try {
+      if (mode === "register") {
+        const { error: e } = await supabase.auth.signUp({
+          email, password,
+          options: { data: { full_name: name } }
+        });
+        if (e) throw e;
+        setInfo("Kayıt başarılı! Giriş yapabilirsiniz.");
+        setMode("login");
+      } else {
+        const { error: e } = await supabase.auth.signInWithPassword({ email, password });
+        if (e) throw e;
+      }
+    } catch (e) {
+      setError(e.message === "Invalid login credentials" ? "E-posta veya şifre hatalı." : e.message);
+    }
+    setLoading(false);
+  };
+
+  const S = {
+    page: { minHeight:"100vh", background:"#070b14", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'DM Sans','Inter',sans-serif" },
+    box:  { background:"#0d1420", border:"1px solid #1e2d45", borderRadius:16, padding:"2.5rem", width:"100%", maxWidth:420, boxShadow:"0 25px 60px rgba(0,0,0,0.5)" },
+    inp:  { width:"100%", background:"#070b14", border:"1px solid #1e2d45", borderRadius:8, color:"#e5e7eb", padding:"0.7rem 0.9rem", fontSize:14, outline:"none", boxSizing:"border-box", marginBottom:"1rem" },
+    btn:  { width:"100%", background:"linear-gradient(135deg,#b8962e,#e2c97e)", border:"none", color:"#0a0e17", fontWeight:800, borderRadius:8, padding:"0.75rem", fontSize:15, cursor:"pointer", fontFamily:"inherit" },
+    lbl:  { display:"block", fontSize:11, color:"#9ca3af", marginBottom:6, letterSpacing:"0.06em", textTransform:"uppercase" },
+  };
+
+  return (
+    <div style={S.page}>
+      <div style={S.box}>
+        {/* Logo */}
+        <div style={{ textAlign:"center", marginBottom:"2rem" }}>
+          <div style={{ width:48, height:48, background:"linear-gradient(135deg,#b8962e,#e2c97e)", borderRadius:12, display:"inline-flex", alignItems:"center", justifyContent:"center", marginBottom:12 }}>
+            <span style={{ fontSize:24 }}>⚖️</span>
+          </div>
+          <div style={{ fontFamily:"'Playfair Display',serif", fontSize:22, fontWeight:700, color:"#e2c97e" }}>LexDesk</div>
+          <div style={{ fontSize:12, color:"#4b5563", marginTop:4 }}>Avukatlık Bürosu Yönetim Sistemi</div>
+        </div>
+
+        {/* Tab */}
+        <div style={{ display:"flex", background:"#070b14", borderRadius:8, padding:4, marginBottom:"1.5rem" }}>
+          {[["login","Giriş Yap"],["register","Kayıt Ol"]].map(([m,l])=>(
+            <button key={m} onClick={()=>{setMode(m);setError("");setInfo("");}}
+              style={{ flex:1, background:mode===m?"#1e2d45":"transparent", border:"none", color:mode===m?"#e2c97e":"#6b7280", borderRadius:6, padding:"0.5rem", fontSize:13, cursor:"pointer", fontWeight:mode===m?700:400 }}>
+              {l}
+            </button>
+          ))}
+        </div>
+
+        {mode==="register" && (
+          <>
+            <label style={S.lbl}>Ad Soyad</label>
+            <input style={S.inp} value={name} onChange={e=>setName(e.target.value)} placeholder="Av. Ahmet Yılmaz"/>
+          </>
+        )}
+        <label style={S.lbl}>E-posta</label>
+        <input style={S.inp} type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="avukat@buro.com"/>
+        <label style={S.lbl}>Şifre</label>
+        <input style={S.inp} type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="••••••••"
+          onKeyDown={e=>e.key==="Enter"&&handle()}/>
+
+        {error && <div style={{ background:"#7f1d1d22", border:"1px solid #991b1b", borderRadius:8, padding:"0.6rem 0.9rem", color:"#fca5a5", fontSize:13, marginBottom:"1rem" }}>{error}</div>}
+        {info  && <div style={{ background:"#06421222", border:"1px solid #10b981", borderRadius:8, padding:"0.6rem 0.9rem", color:"#10b981", fontSize:13, marginBottom:"1rem" }}>{info}</div>}
+
+        <button style={S.btn} onClick={handle} disabled={loading}>
+          {loading ? "⏳ Lütfen bekleyin..." : mode==="login" ? "Giriş Yap" : "Kayıt Ol"}
+        </button>
+
+        {mode==="login" && (
+          <div style={{ textAlign:"center", marginTop:"1rem" }}>
+            <button onClick={async()=>{
+              if(!email){setError("Şifre sıfırlamak için e-posta girin.");return;}
+              await supabase.auth.resetPasswordForEmail(email);
+              setInfo("Şifre sıfırlama e-postası gönderildi.");
+            }} style={{ background:"none", border:"none", color:"#4b5563", fontSize:12, cursor:"pointer" }}>
+              Şifremi Unuttum
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── KULLANICI YÖNETİMİ MODALI ────────────────────────────────────
+function UserManagementModal({ currentUser, onClose }) {
+  const [users, setUsers] = useState([]);
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [password, setPassword] = useState("");
+  const [role, setRole] = useState("limited");
+  const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState("");
+
+  const ROLE_LABELS = { admin:"Admin (Tam Yetkili)", full:"Avukat (Tam Yetkili)", limited:"Avukat (Kısıtlı)" };
+  const ROLE_COLORS = { admin:"#e2c97e", full:"#10b981", limited:"#60a5fa" };
+
+  useEffect(()=>{
+    supabase.from("profiles").select("*").order("created_at").then(({data})=>{ if(data) setUsers(data); });
+  },[]);
+
+  const showToast = (m) => { setToast(m); setTimeout(()=>setToast(""),2500); };
+
+  const createUser = async () => {
+    if(!email||!password||!name){showToast("Tüm alanları doldurun.");return;}
+    setLoading(true);
+    const { data, error } = await supabase.auth.admin.createUser({
+      email, password, email_confirm: true,
+      user_metadata: { full_name: name }
+    });
+    if(error){
+      // Admin API yoksa signup kullan
+      const { error: e2 } = await supabase.auth.signUp({ email, password, options:{ data:{ full_name:name } } });
+      if(e2){ showToast("Hata: "+e2.message); setLoading(false); return; }
+    }
+    // Rol ata
+    setTimeout(async()=>{
+      const { data: profile } = await supabase.from("profiles").select("id").eq("email",email).single();
+      if(profile){ await supabase.from("profiles").update({ role, full_name:name }).eq("id",profile.id); }
+      const { data: updated } = await supabase.from("profiles").select("*").order("created_at");
+      if(updated) setUsers(updated);
+      setEmail(""); setPassword(""); setName(""); setRole("limited");
+      showToast("Kullanıcı oluşturuldu.");
+      setLoading(false);
+    }, 1500);
+  };
+
+  const updateRole = async (id, newRole) => {
+    await supabase.from("profiles").update({ role:newRole }).eq("id",id);
+    setUsers(p=>p.map(u=>u.id===id?{...u,role:newRole}:u));
+    showToast("Rol güncellendi.");
+  };
+
+  const deactivate = async (id) => {
+    if(!confirm("Bu kullanıcıyı devre dışı bırak?")) return;
+    await supabase.from("profiles").update({ is_active:false }).eq("id",id);
+    setUsers(p=>p.map(u=>u.id===id?{...u,is_active:false}:u));
+    showToast("Kullanıcı devre dışı bırakıldı.");
+  };
+
+  return (
+    <Modal title="👥 Kullanıcı Yönetimi" onClose={onClose} wide>
+      {/* Yeni kullanıcı */}
+      <SBox title="Yeni Kullanıcı Ekle" color="#e2c97e">
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 1rem" }}>
+          <Inp label="Ad Soyad" value={name} onChange={e=>setName(e.target.value)} placeholder="Av. Ayşe Kaya"/>
+          <Inp label="E-posta" type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="avukat@buro.com"/>
+          <Inp label="Şifre" type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Geçici şifre"/>
+          <div style={{ marginBottom:"0.9rem" }}>
+            <label style={{ display:"block", fontSize:11, color:"#9ca3af", marginBottom:5, letterSpacing:"0.06em", textTransform:"uppercase" }}>Yetki Seviyesi</label>
+            <select value={role} onChange={e=>setRole(e.target.value)}
+              style={{ width:"100%", background:"#0d1420", border:"1px solid #1e2d45", borderRadius:8, color:"#e5e7eb", padding:"0.55rem 0.75rem", fontSize:13, outline:"none", boxSizing:"border-box" }}>
+              <option value="full">Avukat — Tam Yetkili (her şeyi görür)</option>
+              <option value="limited">Avukat — Kısıtlı (sadece davalar)</option>
+              <option value="admin">Admin — Tam Yetkili + Kullanıcı Yönetimi</option>
+            </select>
+          </div>
+        </div>
+        <Btn onClick={createUser} style={{ alignSelf:"flex-start" }}>
+          {loading ? "⏳ Oluşturuluyor..." : <><Icon name="plus" size={14}/> Kullanıcı Oluştur</>}
+        </Btn>
+      </SBox>
+
+      {/* Mevcut kullanıcılar */}
+      <div style={{ marginTop:"1rem" }}>
+        <div style={{ fontSize:11, color:"#9ca3af", letterSpacing:"0.06em", textTransform:"uppercase", marginBottom:"0.75rem" }}>Mevcut Kullanıcılar</div>
+        {users.map(u=>(
+          <div key={u.id} style={{ display:"flex", alignItems:"center", gap:"1rem", padding:"0.75rem", background:"#0a1628", borderRadius:10, marginBottom:"0.5rem", border:"1px solid #1e2d45" }}>
+            <div style={{ width:36, height:36, borderRadius:"50%", background:ROLE_COLORS[u.role]+"33", border:`2px solid ${ROLE_COLORS[u.role]}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, flexShrink:0 }}>
+              {u.role==="admin"?"👑":u.role==="full"?"⚖️":"🔒"}
+            </div>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontSize:13, color:"#e5e7eb", fontWeight:600 }}>{u.full_name||"—"}</div>
+              <div style={{ fontSize:11, color:"#6b7280" }}>{u.email}</div>
+            </div>
+            <Badge color={ROLE_COLORS[u.role]}>{ROLE_LABELS[u.role]}</Badge>
+            {!u.is_active && <Badge color="#6b7280">Pasif</Badge>}
+            {u.id !== currentUser.id && u.is_active && (
+              <div style={{ display:"flex", gap:6 }}>
+                <select value={u.role} onChange={e=>updateRole(u.id,e.target.value)}
+                  style={{ background:"#0d1420", border:"1px solid #1e2d45", borderRadius:6, color:"#e5e7eb", padding:"0.3rem 0.5rem", fontSize:11, outline:"none", cursor:"pointer" }}>
+                  <option value="admin">Admin</option>
+                  <option value="full">Tam Yetkili</option>
+                  <option value="limited">Kısıtlı</option>
+                </select>
+                <button onClick={()=>deactivate(u.id)}
+                  style={{ background:"#1e2d45", border:"none", color:"#f87171", borderRadius:6, padding:"0.3rem 0.5rem", cursor:"pointer", fontSize:11 }}>
+                  Devre Dışı
+                </button>
+              </div>
+            )}
+            {u.id === currentUser.id && <span style={{ fontSize:11, color:"#4b5563" }}>Sen</span>}
+          </div>
+        ))}
+      </div>
+
+      {toast && <div style={{ marginTop:"1rem", background:"#0d1420", border:"1px solid #10b981", borderRadius:8, padding:"0.6rem 1rem", color:"#10b981", fontSize:13 }}>{toast}</div>}
+    </Modal>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════
 // MAIN APP
 // ══════════════════════════════════════════════════════════════════
 export default function AvukatApp() {
+  const [session, setSession] = useState(undefined); // undefined=loading, null=logout, obj=login
+  const [profile, setProfile] = useState(null);
+
+  // Auth state listener
+  useEffect(()=>{
+    supabase.auth.getSession().then(({data:{session}})=>{ setSession(session); });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_,session)=>{ setSession(session); });
+    return ()=>subscription.unsubscribe();
+  },[]);
+
+  // Profil yükle
+  useEffect(()=>{
+    if(!session?.user) { setProfile(null); return; }
+    supabase.from("profiles").select("*").eq("id",session.user.id).single()
+      .then(({data})=>{ setProfile(data); });
+  },[session]);
+
+  // Yükleniyor
+  if(session===undefined) return (
+    <div style={{ minHeight:"100vh", background:"#070b14", display:"flex", alignItems:"center", justifyContent:"center" }}>
+      <div style={{ color:"#e2c97e", fontSize:16 }}>⏳ Yükleniyor...</div>
+    </div>
+  );
+
+  // Giriş yapılmamış
+  if(!session) return <LoginScreen />;
+
+  // Profil henüz yüklenmediyse bekle
+  if(!profile) return (
+    <div style={{ minHeight:"100vh", background:"#070b14", display:"flex", alignItems:"center", justifyContent:"center" }}>
+      <div style={{ color:"#e2c97e", fontSize:16 }}>⏳ Profil yükleniyor...</div>
+    </div>
+  );
+
+  // Devre dışı kullanıcı
+  if(!profile.is_active) return (
+    <div style={{ minHeight:"100vh", background:"#070b14", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'DM Sans',sans-serif" }}>
+      <div style={{ background:"#0d1420", border:"1px solid #991b1b", borderRadius:16, padding:"2.5rem", textAlign:"center", maxWidth:400 }}>
+        <div style={{ fontSize:40, marginBottom:16 }}>🔒</div>
+        <h2 style={{ color:"#fca5a5", fontFamily:"'Playfair Display',serif" }}>Hesap Devre Dışı</h2>
+        <p style={{ color:"#6b7280", fontSize:14, marginTop:8 }}>Hesabınız yönetici tarafından devre dışı bırakılmıştır.</p>
+        <button onClick={()=>supabase.auth.signOut()}
+          style={{ marginTop:16, background:"#1e2d45", border:"none", color:"#e2c97e", borderRadius:8, padding:"0.6rem 1.2rem", cursor:"pointer", fontSize:13 }}>
+          Çıkış Yap
+        </button>
+      </div>
+    </div>
+  );
+
+  return <MainPanel session={session} profile={profile} />;
+}
+
+// ─── ANA PANEL (auth sonrası) ──────────────────────────────────────
+function MainPanel({ session, profile }) {
+  const isAdmin   = profile.role === "admin";
+  const isFull    = profile.role === "full" || isAdmin;
+  const isLimited = profile.role === "limited";
   const [tab,setTab]=useState("dashboard");
   const [cases,setCases]=useState([]);
   const [expenses,setExpenses]=useState([]);
@@ -671,13 +947,14 @@ export default function AvukatApp() {
     sc:     {background:"#0d1420",border:"1px solid #1e2d45",borderRadius:14,padding:"1.1rem",flex:1},
   };
 
-  const tabs=[
-    {id:"dashboard",label:"Genel Bakış",icon:"dashboard"},
-    {id:"cases",    label:"Davalar",    icon:"scale"},
-    {id:"income",   label:"Gelir",      icon:"income"},
-    {id:"expense",  label:"Giderler",   icon:"expense"},
-    {id:"lawyers",  label:"Avukatlar",  icon:"lawyers"},
+  const allTabs=[
+    {id:"dashboard",label:"Genel Bakış",icon:"dashboard", roles:["admin","full","limited"]},
+    {id:"cases",    label:"Davalar",    icon:"scale",      roles:["admin","full","limited"]},
+    {id:"income",   label:"Gelir",      icon:"income",     roles:["admin","full"]},
+    {id:"expense",  label:"Giderler",   icon:"expense",    roles:["admin","full"]},
+    {id:"lawyers",  label:"Avukatlar",  icon:"lawyers",    roles:["admin","full","limited"]},
   ];
+  const tabs = allTabs.filter(t=>t.roles.includes(profile.role));
 
   if(!ready) return <div style={{...S.app,alignItems:"center",justifyContent:"center"}}><div style={{color:"#e2c97e"}}>Yükleniyor...</div></div>;
 
@@ -692,7 +969,23 @@ export default function AvukatApp() {
         <div style={{width:1,height:22,background:"#1e2d45",flexShrink:0,marginRight:4}}/>
         {tabs.map(t=><button key={t.id} style={S.ni(tab===t.id)} onClick={()=>setTab(t.id)}><Icon name={t.icon} size={14}/>{t.label}</button>)}
         <div style={{flex:1}}/>
-        <span style={{fontSize:11,color:"#374151",whiteSpace:"nowrap",flexShrink:0}}>{new Date().toLocaleDateString("tr-TR",{day:"numeric",month:"short",year:"numeric"})}</span>
+        {/* Rol badge */}
+        <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
+          <Badge color={isAdmin?"#e2c97e":isFull?"#10b981":"#60a5fa"}>
+            {isAdmin?"👑 Admin":isFull?"⚖️ Tam Yetkili":"🔒 Kısıtlı"}
+          </Badge>
+          <span style={{fontSize:12,color:"#6b7280",whiteSpace:"nowrap"}}>{profile.full_name||session.user.email}</span>
+          {isAdmin&&(
+            <button onClick={()=>setModal({type:"userManagement"})}
+              style={{background:"#1e2d45",border:"none",color:"#e2c97e",borderRadius:7,padding:"0.3rem 0.65rem",cursor:"pointer",fontSize:12,whiteSpace:"nowrap"}}>
+              👥 Kullanıcılar
+            </button>
+          )}
+          <button onClick={()=>supabase.auth.signOut()}
+            style={{background:"#1e2d45",border:"none",color:"#9ca3af",borderRadius:7,padding:"0.3rem 0.65rem",cursor:"pointer",fontSize:12}}>
+            Çıkış
+          </button>
+        </div>
       </div>
 
       <div style={{flex:1,width:"100%",overflow:"auto"}}>
@@ -701,9 +994,9 @@ export default function AvukatApp() {
           <h1 style={{margin:0,fontFamily:"'Playfair Display',serif",color:"#e2c97e",fontSize:"1.15rem"}}>{tabs.find(t=>t.id===tab)?.label}</h1>
           <div style={{display:"flex",gap:"0.6rem",flexWrap:"wrap"}}>
             {tab==="cases"  && <Btn onClick={()=>setModal({type:"addCase"})}><Icon name="plus" size={14}/> Yeni Dava</Btn>}
-            {tab==="income" && <><Btn onClick={()=>setModal({type:"smm"})}><Icon name="doc" size={14}/> S.M. Makbuzu</Btn><Btn variant="ghost" onClick={()=>setModal({type:"otherIncome"})}><Icon name="plus" size={14}/> Diğer Gelir</Btn></>}
-            {tab==="expense"&& <Btn onClick={()=>setModal({type:"addExpense"})}><Icon name="plus" size={14}/> Gider Ekle</Btn>}
-            {tab==="lawyers"&& <Btn onClick={()=>setModal({type:"addLawyer"})}><Icon name="plus" size={14}/> Avukat Ekle</Btn>}
+            {tab==="income" && isFull && <><Btn onClick={()=>setModal({type:"smm"})}><Icon name="doc" size={14}/> S.M. Makbuzu</Btn><Btn variant="ghost" onClick={()=>setModal({type:"otherIncome"})}><Icon name="plus" size={14}/> Diğer Gelir</Btn></>}
+            {tab==="expense"&& isFull && <Btn onClick={()=>setModal({type:"addExpense"})}><Icon name="plus" size={14}/> Gider Ekle</Btn>}
+            {tab==="lawyers"&& isFull && <Btn onClick={()=>setModal({type:"addLawyer"})}><Icon name="plus" size={14}/> Avukat Ekle</Btn>}
           </div>
         </div>
 
@@ -713,7 +1006,8 @@ export default function AvukatApp() {
           {tab==="dashboard"&&(
             <div style={{display:"flex",flexDirection:"column",gap:"1.5rem"}}>
               <div style={{display:"flex",gap:"0.75rem",flexWrap:"wrap"}}>
-                {[{l:"Aktif Dava",v:activeCases.length,c:"#60a5fa"},{l:"Beklenen Gelir",v:fmt(totalExpected),c:"#e2c97e"},{l:"Tahsil Edilen",v:fmt(totalCollected),c:"#10b981"},{l:"Toplam Gider",v:fmt(totalExpenses),c:"#f87171"},{l:"Aktif Risk",v:fmt(totalRisk),c:"#fb923c"},{l:"Net Kâr",v:fmt(totalCollected-totalExpenses),c:totalCollected-totalExpenses>=0?"#10b981":"#f87171"},{l:"İş Saati",v:totalHours+" s",c:"#a78bfa"}].map(s=>(
+                {[{l:"Aktif Dava",v:activeCases.length,c:"#60a5fa",all:true},{l:"Beklenen Gelir",v:fmt(totalExpected),c:"#e2c97e",all:false},{l:"Tahsil Edilen",v:fmt(totalCollected),c:"#10b981",all:false},{l:"Toplam Gider",v:fmt(totalExpenses),c:"#f87171",all:false},{l:"Aktif Risk",v:fmt(totalRisk),c:"#fb923c",all:true},{l:"Net Kâr",v:fmt(totalCollected-totalExpenses),c:totalCollected-totalExpenses>=0?"#10b981":"#f87171",all:false},{l:"İş Saati",v:totalHours+" s",c:"#a78bfa",all:true}]
+                  .filter(s=>s.all||isFull).map(s=>(
                   <div key={s.l} style={{...S.sc,minWidth:110}}>
                     <div style={{fontSize:10,color:"#6b7280",letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:5}}>{s.l}</div>
                     <div style={{fontSize:17,fontWeight:800,color:s.c}}>{s.v}</div>
@@ -1049,6 +1343,7 @@ export default function AvukatApp() {
       {modal?.type==="clientReport"&&<ClientReport client={modal.client} cases={cases} incomes={incomes} onClose={()=>setModal(null)}/>}
       {modal?.type==="aiDoc"&&<AIAssistant caseData={modal.data} mode="document" onClose={()=>setModal(null)}/>}
       {modal?.type==="aiAnalyze"&&<AIAssistant caseData={modal.data} mode="analyze" onClose={()=>setModal(null)}/>}
+      {modal?.type==="userManagement"&&<UserManagementModal currentUser={profile} onClose={()=>setModal(null)}/>}
 
       {/* TOAST */}
       {toast&&<div style={{position:"fixed",bottom:"2rem",right:"2rem",background:"#0d1420",border:"1px solid #10b981",borderRadius:10,padding:"0.75rem 1.25rem",color:"#10b981",fontSize:13,fontWeight:600,display:"flex",alignItems:"center",gap:8,boxShadow:"0 8px 30px rgba(0,0,0,0.5)",zIndex:2000}}><Icon name="check" size={14}/>{toast}</div>}
