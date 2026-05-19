@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { fetchAll, insertRow, updateRow, deleteRow, supabase } from "./supabase.js";
+import { fetchAll, insertRow, updateRow, deleteRow, supabase, uploadDocument, getDocumentUrl, deleteDocument, fetchDocuments, extractTextFromFile } from "./supabase.js";
 
 // ─── CONSTANTS ─────────────────────────────────────────────────────
 const CASE_STAGES = ["Başvuru / Kabul","Hazırlık","Dava Açıldı","Tensip Bekleniyor","İlk Duruşma","Delil / Keşif","Bilirkişi","Son Duruşma","Karar Bekleniyor","Kesinleşti","İcra Aşaması","Kapandı"];
@@ -181,6 +181,7 @@ const LawyerForm = ({ initial, usedColors, onSave, onClose }) => {
           {form.photo?<img src={form.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<Icon name="user" size={22}/>}
         </div>
         <div style={{flex:1}}>
+          <p style={{margin:"0 0 5px",fontSize:11,color:"#9ca3af",letterSpacing:"0.06em",textTransform:"uppercase"}}>Profil Fotoğrafı</p>
           <input type="file" accept="image/*" onChange={hp} style={{display:"block",width:"100%",background:"#0d1420",border:"1px solid #1e2d45",borderRadius:8,color:"#9ca3af",padding:"0.35rem 0.5rem",fontSize:11,cursor:"pointer",boxSizing:"border-box",marginBottom:7}}/>
           <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
             {LAWYER_COLORS.map(c=><div key={c} onClick={()=>set("color",c)} style={{width:16,height:16,borderRadius:"50%",background:c,cursor:"pointer",border:form.color===c?"2px solid #fff":"2px solid transparent"}}/>)}
@@ -215,19 +216,84 @@ const CaseForm = ({ initial, lawyers, onSave, onClose }) => {
     ownerLawyerId:lawyers[0]?.id?String(lawyers[0].id):"",
     handlerLawyerId:lawyers[0]?.id?String(lawyers[0].id):"",
   });
+  const [analyzing, setAnalyzing] = useState(false);
+  const [contractFile, setContractFile] = useState(null);
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const hp=(e)=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>set("photo",ev.target.result);r.readAsDataURL(f);};
   const G3={display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"0 1.1rem"};
   const G2={display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 1.1rem"};
+
+  const analyzeContract = async (file) => {
+    setAnalyzing(true);
+    try {
+      const extracted = await extractTextFromFile(file);
+      const messages = [];
+      if (extracted.type === 'pdf') {
+        messages.push({ role:'user', content:[
+          { type:'document', source:{ type:'base64', media_type:'application/pdf', data:extracted.data.split(',')[1] }},
+          { type:'text', text:`Bu hukuki belgeyi analiz et. Aşağıdaki bilgileri JSON formatında döndür, başka hiçbir şey yazma:\n{"title":"Dava başlığı","client":"Müvekkil adı","plaintiff":"Davacı","defendant":"Davalı","type":"Dava türü (${CASE_TYPES.join('/')})","expectedFee":"Vekalet ücreti sayı","caseValue":"Dava değeri sayı","notes":"Özet"}` }
+        ]});
+      } else {
+        messages.push({ role:'user', content:`Bu belgeyi analiz et:\n\n${extracted.data.substring(0,8000)}\n\nJSON formatında döndür:\n{"title":"Dava başlığı","client":"Müvekkil","plaintiff":"Davacı","defendant":"Davalı","type":"Dava türü","expectedFee":"","caseValue":"","notes":"Özet"}` });
+      }
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:800, messages })
+      });
+      const data = await res.json();
+      const text = data.content?.filter(b=>b.type==='text').map(b=>b.text).join('') || '';
+      const clean = text.replace(/```json|```/g,'').trim();
+      const parsed = JSON.parse(clean);
+      setForm(p=>({...p,
+        title: parsed.title||p.title, client: parsed.client||p.client,
+        plaintiff: parsed.plaintiff||p.plaintiff, defendant: parsed.defendant||p.defendant,
+        type: CASE_TYPES.includes(parsed.type)?parsed.type:p.type,
+        expectedFee: parsed.expectedFee||p.expectedFee,
+        caseValue: parsed.caseValue||p.caseValue,
+        notes: parsed.notes||p.notes,
+      }));
+    } catch(e) { console.error('Analiz hatası:', e); }
+    setAnalyzing(false);
+  };
+
+  const handleContractUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setContractFile(file);
+    await analyzeContract(file);
+  };
   return (
     <Modal title={initial?.id?"Davayı Düzenle":"Yeni Dava Aç"} onClose={onClose} xl>
       {/* Görsel */}
-      <div style={{display:"flex",alignItems:"center",gap:"1rem",marginBottom:"1rem"}}>
+      <div style={{display:"flex",alignItems:"center",gap:"1rem",marginBottom:"0.75rem"}}>
         <div style={{width:50,height:50,borderRadius:10,background:"#0d1420",border:"2px dashed #2d4163",overflow:"hidden",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
           {form.photo?<img src={form.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<Icon name="upload" size={18}/>}
         </div>
         <input type="file" accept="image/*" onChange={hp} style={{flex:1,background:"#0d1420",border:"1px solid #1e2d45",borderRadius:8,color:"#9ca3af",padding:"0.35rem 0.6rem",fontSize:12,cursor:"pointer",boxSizing:"border-box"}}/>
         {form.photo&&<button onClick={()=>set("photo","")} style={{background:"#1e2d45",border:"none",color:"#f87171",borderRadius:8,padding:"0.3rem 0.6rem",cursor:"pointer",fontSize:12}}>Sil</button>}
+      </div>
+
+      {/* Sözleşme / Vekâletname Yükleme + AI Analiz */}
+      <div style={{background:"#0a1628",border:"1px solid #2d5a8e",borderRadius:10,padding:"1rem 1.25rem",marginBottom:"0.75rem"}}>
+        <div style={{fontSize:11,color:"#60a5fa",fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:"0.65rem"}}>
+          🤖 Sözleşme / Vekâletname Yükle — AI Otomatik Doldurur
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:"1rem",flexWrap:"wrap"}}>
+          <label style={{background:"linear-gradient(135deg,#1e3a5f,#2d5a8e)",border:"1px solid #2d5a8e",color:"#93c5fd",borderRadius:8,padding:"0.45rem 1rem",fontSize:12,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:6,flexShrink:0}}>
+            <Icon name="upload" size={13}/>
+            {analyzing ? "⏳ AI analiz ediyor..." : "PDF veya Word Yükle"}
+            <input type="file" accept=".pdf,.doc,.docx,.txt" onChange={handleContractUpload} style={{display:"none"}} disabled={analyzing}/>
+          </label>
+          {contractFile && (
+            <span style={{fontSize:12,color:"#10b981"}}>✓ {contractFile.name} — Form otomatik dolduruldu</span>
+          )}
+          {analyzing && (
+            <span style={{fontSize:12,color:"#f59e0b"}}>AI belgeyi okuyup formu dolduruyor...</span>
+          )}
+        </div>
+        <p style={{margin:"8px 0 0",fontSize:11,color:"#4b5563"}}>
+          Müvekkil sözleşmesi veya vekâletname yükleyin. AI taraflar, dava türü ve ücret bilgilerini otomatik tespit eder.
+        </p>
       </div>
 
       {/* Avukat */}
@@ -1166,6 +1232,7 @@ function MainPanel({ session, profile }) {
                       <div style={{display:"flex",flexDirection:"column",gap:4}}>
                         <Btn small variant="ai" onClick={()=>setModal({type:"aiDoc",data:c})}><Icon name="doc" size={12}/> Dilekçe</Btn>
                         <Btn small variant="ai" onClick={()=>setModal({type:"aiAnalyze",data:c})}><Icon name="search" size={12}/> AI Yorum</Btn>
+                        <Btn small variant="ghost" onClick={()=>setModal({type:"documents",data:c})} style={{color:"#60a5fa",borderColor:"#1e3a5f"}}>📁 Belgeler</Btn>
                         {c.client&&<Btn small variant="ghost" onClick={()=>setModal({type:"clientReport",client:c.client})}><Icon name="report" size={12}/> Rapor</Btn>}
                       </div>
                       <div style={{display:"flex",gap:4}}>
@@ -1361,10 +1428,156 @@ function MainPanel({ session, profile }) {
       {modal?.type==="aiDoc"&&<AIAssistant caseData={modal.data} mode="document" onClose={()=>setModal(null)}/>}
       {modal?.type==="aiAnalyze"&&<AIAssistant caseData={modal.data} mode="analyze" onClose={()=>setModal(null)}/>}
       {modal?.type==="userManagement"&&<UserManagementModal currentUser={profile} onClose={()=>setModal(null)}/>}
+      {modal?.type==="documents"&&<DocumentsModal caseData={modal.data} userId={session.user.id} onClose={()=>setModal(null)}/>}
 
       {/* TOAST */}
       {toast&&<div style={{position:"fixed",bottom:"2rem",right:"2rem",background:"#0d1420",border:"1px solid #10b981",borderRadius:10,padding:"0.75rem 1.25rem",color:"#10b981",fontSize:13,fontWeight:600,display:"flex",alignItems:"center",gap:8,boxShadow:"0 8px 30px rgba(0,0,0,0.5)",zIndex:2000}}><Icon name="check" size={14}/>{toast}</div>}
     </div>
   );
+}
+
+// ─── BELGELER MODALI ──────────────────────────────────────────────
+function DocumentsModal({ caseData, userId, onClose }) {
+  const [docs, setDocs] = useState([])
+  const [uploading, setUploading] = useState(false)
+  const [aiResult, setAiResult] = useState("")
+  const [aiLoading, setAiLoading] = useState(false)
+  const [selectedDoc, setSelectedDoc] = useState(null)
+
+  useEffect(() => {
+    fetchDocuments(caseData.id).then(setDocs)
+  }, [caseData.id])
+
+  const handleUpload = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    setUploading(true)
+    const result = await uploadDocument(caseData.id, file)
+    if (result) {
+      const row = await insertRow("documents", {
+        case_id: caseData.id,
+        name: file.name,
+        file_path: result.path,
+        file_type: file.type || file.name.split('.').pop(),
+        file_size: file.size,
+        uploaded_by: userId,
+      })
+      if (row) setDocs(p => [row, ...p])
+    }
+    setUploading(false)
+    e.target.value = ""
+  }
+
+  const handleDelete = async (doc) => {
+    if (!confirm(`"${doc.name}" silinsin mi?`)) return
+    await deleteDocument(doc.file_path)
+    await deleteRow("documents", doc.id)
+    setDocs(p => p.filter(x => x.id !== doc.id))
+  }
+
+  const handleOpen = async (doc) => {
+    const url = await getDocumentUrl(doc.file_path)
+    if (url) window.open(url, '_blank')
+  }
+
+  const analyzeAllDocs = async () => {
+    if (docs.length === 0) return
+    setAiLoading(true)
+    setAiResult("")
+    try {
+      const docList = docs.map(d => `- ${d.name} (${new Date(d.created_at).toLocaleDateString('tr-TR')})`).join('\n')
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1500,
+          system: 'Sen deneyimli bir Türk hukuk danışmanısın. Dava belgelerini ve bilgilerini analiz ederek hukuki yorum ve tavsiye veriyorsun.',
+          messages: [{
+            role: 'user',
+            content: `Aşağıdaki dava için mevcut belgeler ve bilgilere dayanarak hukuki değerlendirme yap:\n\nDava: ${caseData.title}\nTür: ${caseData.type}\nAşama: ${caseData.stage}\nDavacı: ${caseData.plaintiff}\nDavalı: ${caseData.defendant}\nKazanma İhtimali: %${caseData.winRate || 50}\n\nYüklü Belgeler:\n${docList}\n\nLütfen şunları değerlendir:\n1. Davanın mevcut gidişatı\n2. Güçlü ve zayıf yönler\n3. Önerilen strateji\n4. Dikkat edilmesi gereken riskler\n5. Sonraki adımlar`
+          }]
+        })
+      })
+      const data = await res.json()
+      setAiResult(data.content?.filter(b => b.type === 'text').map(b => b.text).join('') || 'Yanıt alınamadı.')
+    } catch { setAiResult('Hata oluştu.') }
+    setAiLoading(false)
+  }
+
+  const formatSize = (bytes) => {
+    if (!bytes) return ''
+    if (bytes < 1024) return bytes + ' B'
+    if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB'
+    return (bytes/(1024*1024)).toFixed(1) + ' MB'
+  }
+
+  const fileIcon = (type) => {
+    if (!type) return '📄'
+    if (type.includes('pdf')) return '📕'
+    if (type.includes('word') || type.includes('doc')) return '📘'
+    if (type.includes('image')) return '🖼️'
+    if (type.includes('sheet') || type.includes('excel') || type.includes('xls')) return '📗'
+    return '📄'
+  }
+
+  return (
+    <Modal title={`📁 Belgeler — ${caseData.title}`} onClose={onClose} wide>
+      {/* Yükleme alanı */}
+      <div style={{background:"#0a1628",border:"2px dashed #1e3a5f",borderRadius:12,padding:"1.25rem",marginBottom:"1rem",textAlign:"center"}}>
+        <div style={{fontSize:28,marginBottom:8}}>📂</div>
+        <p style={{color:"#9ca3af",fontSize:13,marginBottom:"0.75rem"}}>PDF, Word, Excel, görsel — her türlü belge yükleyebilirsiniz</p>
+        <label style={{background:"linear-gradient(135deg,#1e3a5f,#2d5a8e)",border:"1px solid #2d5a8e",color:"#93c5fd",borderRadius:8,padding:"0.55rem 1.2rem",fontSize:13,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:6}}>
+          <Icon name="upload" size={15}/>
+          {uploading ? "⏳ Yükleniyor..." : "Belge Yükle"}
+          <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.txt" onChange={handleUpload} style={{display:"none"}} disabled={uploading}/>
+        </label>
+      </div>
+
+      {/* Belgeler listesi */}
+      {docs.length === 0 ? (
+        <div style={{textAlign:"center",color:"#4b5563",padding:"2rem",fontSize:13}}>Henüz belge yüklenmemiş.</div>
+      ) : (
+        <div style={{display:"flex",flexDirection:"column",gap:"0.5rem",marginBottom:"1rem"}}>
+          {docs.map(doc => (
+            <div key={doc.id} style={{display:"flex",alignItems:"center",gap:"0.75rem",background:"#0d1420",border:"1px solid #1e2d45",borderRadius:10,padding:"0.75rem 1rem"}}>
+              <span style={{fontSize:24,flexShrink:0}}>{fileIcon(doc.file_type)}</span>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:13,color:"#e5e7eb",fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{doc.name}</div>
+                <div style={{fontSize:11,color:"#6b7280"}}>{new Date(doc.created_at).toLocaleDateString('tr-TR')} · {formatSize(doc.file_size)}</div>
+              </div>
+              <button onClick={()=>handleOpen(doc)}
+                style={{background:"#1e3a5f",border:"none",color:"#93c5fd",borderRadius:7,padding:"0.35rem 0.75rem",cursor:"pointer",fontSize:12,flexShrink:0}}>
+                Aç
+              </button>
+              <button onClick={()=>handleDelete(doc)}
+                style={{background:"none",border:"none",color:"#4b5563",cursor:"pointer",padding:"0.35rem",flexShrink:0}}>
+                <Icon name="trash" size={14}/>
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* AI Yorum */}
+      <div style={{borderTop:"1px solid #1e2d45",paddingTop:"1rem"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.75rem"}}>
+          <h3 style={{margin:0,color:"#e2c97e",fontSize:13,fontWeight:700}}>🤖 AI Hukuki Değerlendirme</h3>
+          <Btn variant="ai" small onClick={analyzeAllDocs}>
+            {aiLoading ? "⏳ Analiz ediliyor..." : <><Icon name="search" size={13}/> Tüm Belgeleri Değerlendir</>}
+          </Btn>
+        </div>
+        {aiResult && (
+          <div style={{background:"#0a1628",border:"1px solid #1e3a5f",borderRadius:10,padding:"1.25rem",position:"relative"}}>
+            <button onClick={()=>navigator.clipboard.writeText(aiResult)}
+              style={{position:"absolute",top:10,right:10,background:"#1e2d45",border:"none",color:"#9ca3af",borderRadius:6,padding:"3px 8px",cursor:"pointer",fontSize:11}}>
+              Kopyala
+            </button>
+            <pre style={{margin:0,color:"#bfdbfe",fontSize:12,lineHeight:1.7,whiteSpace:"pre-wrap",fontFamily:"monospace",paddingTop:8}}>{aiResult}</pre>
+          </div>
+        )}
+      </div>
+    </Modal>
+  )
 }
 
