@@ -226,33 +226,66 @@ const CaseForm = ({ initial, lawyers, onSave, onClose }) => {
   const analyzeContract = async (file) => {
     setAnalyzing(true);
     try {
-      const extracted = await extractTextFromFile(file);
-      const messages = [];
-      if (extracted.type === 'pdf') {
-        messages.push({ role:'user', content:[
-          { type:'document', source:{ type:'base64', media_type:'application/pdf', data:extracted.data.split(',')[1] }},
-          { type:'text', text:`Bu hukuki belgeyi analiz et. Aşağıdaki bilgileri JSON formatında döndür, başka hiçbir şey yazma:\n{"title":"Dava başlığı","client":"Müvekkil adı","plaintiff":"Davacı","defendant":"Davalı","type":"Dava türü (${CASE_TYPES.join('/')})","expectedFee":"Vekalet ücreti sayı","caseValue":"Dava değeri sayı","notes":"Özet"}` }
-        ]});
+      const isPDF = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+      const isWord = file.name.toLowerCase().endsWith('.docx') || file.name.toLowerCase().endsWith('.doc');
+      const isTxt = file.name.toLowerCase().endsWith('.txt');
+
+      let messages = [];
+
+      if (isPDF) {
+        // PDF: base64 olarak Claude'a gönder
+        const base64 = await new Promise(resolve => {
+          const r = new FileReader();
+          r.onload = e => resolve(e.target.result.split(',')[1]);
+          r.readAsDataURL(file);
+        });
+        messages = [{
+          role: 'user',
+          content: [
+            { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 }},
+            { type: 'text', text: `Bu hukuki belgeyi analiz et. Sadece aşağıdaki JSON'u döndür, başka hiçbir şey yazma:\n{"title":"dava başlığı","client":"müvekkil adı","plaintiff":"davacı","defendant":"davalı","type":"dava türü (${CASE_TYPES.join('/')})","expectedFee":"vekalet ücreti rakam","caseValue":"dava değeri rakam","notes":"kısa özet"}` }
+          ]
+        }];
       } else {
-        messages.push({ role:'user', content:`Bu belgeyi analiz et:\n\n${extracted.data.substring(0,8000)}\n\nJSON formatında döndür:\n{"title":"Dava başlığı","client":"Müvekkil","plaintiff":"Davacı","defendant":"Davalı","type":"Dava türü","expectedFee":"","caseValue":"","notes":"Özet"}` });
+        // Word/TXT: metin olarak oku
+        const text = await new Promise(resolve => {
+          const r = new FileReader();
+          r.onload = e => resolve(e.target.result);
+          r.readAsText(file, 'UTF-8');
+        });
+        messages = [{
+          role: 'user',
+          content: `Aşağıdaki hukuki belgeyi analiz et ve sadece bu JSON'u döndür:\n{"title":"dava başlığı","client":"müvekkil","plaintiff":"davacı","defendant":"davalı","type":"dava türü","expectedFee":"ücret rakam","caseValue":"değer rakam","notes":"özet"}\n\nBelge:\n${text.substring(0, 6000)}`
+        }];
       }
+
       const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:800, messages })
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 800, messages })
       });
+
+      if (!res.ok) throw new Error('API hatası: ' + res.status);
       const data = await res.json();
-      const text = data.content?.filter(b=>b.type==='text').map(b=>b.text).join('') || '';
-      const clean = text.replace(/```json|```/g,'').trim();
+      const text2 = data.content?.filter(b => b.type === 'text').map(b => b.text).join('') || '';
+      const clean = text2.replace(/```json|```/g, '').trim();
+
       const parsed = JSON.parse(clean);
-      setForm(p=>({...p,
-        title: parsed.title||p.title, client: parsed.client||p.client,
-        plaintiff: parsed.plaintiff||p.plaintiff, defendant: parsed.defendant||p.defendant,
-        type: CASE_TYPES.includes(parsed.type)?parsed.type:p.type,
-        expectedFee: parsed.expectedFee||p.expectedFee,
-        caseValue: parsed.caseValue||p.caseValue,
-        notes: parsed.notes||p.notes,
+      setForm(p => ({
+        ...p,
+        title:       parsed.title       || p.title,
+        client:      parsed.client      || p.client,
+        plaintiff:   parsed.plaintiff   || p.plaintiff,
+        defendant:   parsed.defendant   || p.defendant,
+        type:        CASE_TYPES.includes(parsed.type) ? parsed.type : p.type,
+        expectedFee: parsed.expectedFee ? String(parsed.expectedFee).replace(/\D/g,'') : p.expectedFee,
+        caseValue:   parsed.caseValue   ? String(parsed.caseValue).replace(/\D/g,'')   : p.caseValue,
+        notes:       parsed.notes       || p.notes,
       }));
-    } catch(e) { console.error('Analiz hatası:', e); }
+    } catch(e) {
+      console.error('Analiz hatası:', e);
+      alert('AI analiz sırasında hata oluştu. Lütfen tekrar deneyin.');
+    }
     setAnalyzing(false);
   };
 
@@ -265,14 +298,6 @@ const CaseForm = ({ initial, lawyers, onSave, onClose }) => {
   return (
     <Modal title={initial?.id?"Davayı Düzenle":"Yeni Dava Aç"} onClose={onClose} xl>
       {/* Görsel */}
-      <div style={{display:"flex",alignItems:"center",gap:"1rem",marginBottom:"0.75rem"}}>
-        <div style={{width:50,height:50,borderRadius:10,background:"#0d1420",border:"2px dashed #2d4163",overflow:"hidden",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
-          {form.photo?<img src={form.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<Icon name="upload" size={18}/>}
-        </div>
-        <input type="file" accept="image/*" onChange={hp} style={{flex:1,background:"#0d1420",border:"1px solid #1e2d45",borderRadius:8,color:"#9ca3af",padding:"0.35rem 0.6rem",fontSize:12,cursor:"pointer",boxSizing:"border-box"}}/>
-        {form.photo&&<button onClick={()=>set("photo","")} style={{background:"#1e2d45",border:"none",color:"#f87171",borderRadius:8,padding:"0.3rem 0.6rem",cursor:"pointer",fontSize:12}}>Sil</button>}
-      </div>
-
       {/* Sözleşme / Vekâletname Yükleme + AI Analiz */}
       <div style={{background:"#0a1628",border:"1px solid #2d5a8e",borderRadius:10,padding:"1rem 1.25rem",marginBottom:"0.75rem"}}>
         <div style={{fontSize:11,color:"#60a5fa",fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:"0.65rem"}}>
@@ -284,11 +309,11 @@ const CaseForm = ({ initial, lawyers, onSave, onClose }) => {
             {analyzing ? "⏳ AI analiz ediyor..." : "PDF veya Word Yükle"}
             <input type="file" accept=".pdf,.doc,.docx,.txt" onChange={handleContractUpload} style={{display:"none"}} disabled={analyzing}/>
           </label>
-          {contractFile && (
-            <span style={{fontSize:12,color:"#10b981"}}>✓ {contractFile.name} — Form otomatik dolduruldu</span>
+          {contractFile && !analyzing && (
+            <span style={{fontSize:12,color:"#10b981"}}>✓ {contractFile.name} — Form dolduruldu</span>
           )}
           {analyzing && (
-            <span style={{fontSize:12,color:"#f59e0b"}}>AI belgeyi okuyup formu dolduruyor...</span>
+            <span style={{fontSize:12,color:"#f59e0b"}}>⏳ AI belgeyi okuyup formu dolduruyor...</span>
           )}
         </div>
         <p style={{margin:"8px 0 0",fontSize:11,color:"#4b5563"}}>
@@ -337,9 +362,29 @@ const CaseForm = ({ initial, lawyers, onSave, onClose }) => {
       {/* Finansal */}
       <SBox title="💰 Finansal" color="#e2c97e">
         <div style={G3}>
-          <Input label="Dava Değeri (₺)" type="number" value={form.caseValue} onChange={e=>set("caseValue",e.target.value)}/>
-          <Input label="Beklenen Vekâlet (₺)" type="number" value={form.expectedFee} onChange={e=>set("expectedFee",e.target.value)}/>
-          <Input label="⚠️ Tahmini Risk (₺)" type="number" value={form.riskAmount} onChange={e=>set("riskAmount",e.target.value)}/>
+          {[
+            {label:"Dava Değeri",key:"caseValue"},
+            {label:"Beklenen Vekâlet",key:"expectedFee"},
+            {label:"⚠️ Tahmini Risk",key:"riskAmount"},
+          ].map(({label,key})=>(
+            <div key={key} style={{marginBottom:"0.9rem"}}>
+              <label style={{display:"block",fontSize:11,color:"#9ca3af",marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase"}}>{label}</label>
+              <div style={{position:"relative"}}>
+                <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:"#e2c97e",fontWeight:700,fontSize:13}}>₺</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={form[key] ? Number(form[key]).toLocaleString("tr-TR") : ""}
+                  onChange={e=>{
+                    const raw = e.target.value.replace(/\./g,"").replace(",",".");
+                    if(!isNaN(raw)||raw==="") set(key, raw||"");
+                  }}
+                  placeholder="0"
+                  style={{width:"100%",background:"#0d1420",border:"1px solid #1e2d45",borderRadius:8,color:"#e5e7eb",padding:"0.55rem 0.75rem 0.55rem 1.75rem",fontSize:13,outline:"none",boxSizing:"border-box"}}
+                />
+              </div>
+            </div>
+          ))}
         </div>
       </SBox>
 
@@ -375,7 +420,7 @@ const CaseForm = ({ initial, lawyers, onSave, onClose }) => {
       <Input label="Notlar" as="textarea" value={form.notes} onChange={e=>set("notes",e.target.value)}/>
       <div style={{display:"flex",gap:"0.75rem",justifyContent:"flex-end"}}>
         <Btn variant="ghost" onClick={onClose}>İptal</Btn>
-        <Btn onClick={()=>{if(!form.title)return;onSave({...form,id:form.id||Date.now()});}}>Kaydet</Btn>
+        <Btn onClick={()=>{ if(!form.title){ alert("Dava adı zorunludur."); return; } onSave(form); }}>Kaydet</Btn>
       </div>
     </Modal>
   );
