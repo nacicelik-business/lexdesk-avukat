@@ -145,7 +145,8 @@ const AIAssistant = ({ caseData, mode, onClose }) => {
   const run=async()=>{
     setLoading(true); setResult("");
     try {
-      const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},
+      const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",
+        headers:{"Content-Type":"application/json","x-api-key":import.meta.env.VITE_ANTHROPIC_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
         body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1500,
           system:mode==="document"?"Sen deneyimli bir Türk avukatısın. Hukuki Türkçe ile profesyonel dilekçe taslakları oluştur.":"Sen deneyimli bir Türk hukuk danışmanısın. Dava bilgilerini analiz et, risk ve strateji önerilerini Türkçe açıkla.",
           messages:[{role:"user",content:task}]})});
@@ -261,7 +262,12 @@ const CaseForm = ({ initial, lawyers, onSave, onClose }) => {
 
       const res = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': import.meta.env.VITE_ANTHROPIC_KEY,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
         body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 800, messages })
       });
 
@@ -1533,7 +1539,12 @@ function DocumentsModal({ caseData, userId, onClose }) {
       const docList = docs.map(d => `- ${d.name} (${new Date(d.created_at).toLocaleDateString('tr-TR')})`).join('\n')
       const res = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': import.meta.env.VITE_ANTHROPIC_KEY,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
           max_tokens: 1500,
