@@ -606,6 +606,7 @@ function LoginScreen({ onLogin }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
+  const [showPass, setShowPass] = useState(false);
 
   const handle = async () => {
     if (!email || !password) { setError("E-posta ve şifre gerekli."); return; }
@@ -669,8 +670,15 @@ function LoginScreen({ onLogin }) {
         <label style={S.lbl}>E-posta</label>
         <input style={S.inp} type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="avukat@buro.com"/>
         <label style={S.lbl}>Şifre</label>
-        <input style={S.inp} type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="••••••••"
-          onKeyDown={e=>e.key==="Enter"&&handle()}/>
+        <div style={{ position:"relative", marginBottom:"1rem" }}>
+          <input type={showPass?"text":"password"} value={password} onChange={e=>setPassword(e.target.value)}
+            placeholder="••••••••" onKeyDown={e=>e.key==="Enter"&&handle()}
+            style={{...S.inp, marginBottom:0, paddingRight:"2.5rem"}}/>
+          <button onClick={()=>setShowPass(p=>!p)}
+            style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:"#6b7280", cursor:"pointer", padding:4, fontSize:16 }}>
+            {showPass ? "🙈" : "👁️"}
+          </button>
+        </div>
 
         {error && <div style={{ background:"#7f1d1d22", border:"1px solid #991b1b", borderRadius:8, padding:"0.6rem 0.9rem", color:"#fca5a5", fontSize:13, marginBottom:"1rem" }}>{error}</div>}
         {info  && <div style={{ background:"#06421222", border:"1px solid #10b981", borderRadius:8, padding:"0.6rem 0.9rem", color:"#10b981", fontSize:13, marginBottom:"1rem" }}>{info}</div>}
