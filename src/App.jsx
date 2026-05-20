@@ -246,10 +246,17 @@ const CaseForm = ({ initial, lawyers, onSave, onClose }) => {
           ]
         }];
       } else if (isDocx) {
-        // Mammoth ile Word → HTML → metin
-        const mammoth = await import('mammoth');
+        // mammoth CDN ile Word → metin
+        if (!window.mammoth) {
+          await new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = 'https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js';
+            s.onload = resolve; s.onerror = reject;
+            document.head.appendChild(s);
+          });
+        }
         const arrayBuffer = await file.arrayBuffer();
-        const result = await mammoth.extractRawText({ arrayBuffer });
+        const result = await window.mammoth.extractRawText({ arrayBuffer });
         const text = result.value || '';
         messages = [{
           role: 'user',
