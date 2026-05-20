@@ -147,7 +147,7 @@ const AIAssistant = ({ caseData, mode, onClose }) => {
     try {
       const res=await fetch("/api/claude",{method:"POST",
         headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1500,
+        body:JSON.stringify({model:"claude-sonnet-4-5",max_tokens:1500,
           system:mode==="document"?"Sen deneyimli bir Türk avukatısın. Hukuki Türkçe ile profesyonel dilekçe taslakları oluştur.":"Sen deneyimli bir Türk hukuk danışmanısın. Dava bilgilerini analiz et, risk ve strateji önerilerini Türkçe açıkla.",
           messages:[{role:"user",content:task}]})});
       const d=await res.json();
@@ -284,7 +284,7 @@ const CaseForm = ({ initial, lawyers, onSave, onClose }) => {
       const res = await fetch('/api/claude', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 800, messages })
+        body: JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 800, messages })
       });
 
       if (!res.ok) throw new Error('API: ' + res.status);
@@ -1560,7 +1560,7 @@ function DocumentsModal({ caseData, userId, onClose }) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
+          model: 'claude-sonnet-4-5',
           max_tokens: 1500,
           system: 'Sen deneyimli bir Türk hukuk danışmanısın. Dava belgelerini ve bilgilerini analiz ederek hukuki yorum ve tavsiye veriyorsun.',
           messages: [{
