@@ -177,29 +177,66 @@ const ROLE_OPTIONS = [
   { value:"assistant", label:"📋 Asistan",          desc:"Sadece davaları görür, düzenleyemez, finansal yok" },
 ];
 
-const PERM_TABLE = [
-  { label:"Dava görüntüle",    admin:true,  senior:true,  lawyer:true,  assistant:true  },
-  { label:"Dava ekle/düzenle", admin:true,  senior:true,  lawyer:true,  assistant:false },
-  { label:"Dava sil",          admin:true,  senior:true,  lawyer:false, assistant:false },
-  { label:"Gelir/Gider gör",   admin:true,  senior:true,  lawyer:true,  assistant:false },
-  { label:"Gelir/Gider ekle",  admin:true,  senior:true,  lawyer:false, assistant:false },
-  { label:"Avukat ekle/sil",   admin:true,  senior:false, lawyer:false, assistant:false },
-  { label:"Kullanıcı yönetimi",admin:true,  senior:false, lawyer:false, assistant:false },
+const PERM_KEYS = [
+  { key:"viewCases",    label:"Dava görüntüle" },
+  { key:"editCases",    label:"Dava ekle/düzenle" },
+  { key:"deleteCases",  label:"Dava sil" },
+  { key:"viewFinance",  label:"Gelir/Gider gör" },
+  { key:"addFinance",   label:"Gelir/Gider ekle" },
+  { key:"addLawyer",    label:"Avukat ekle/sil" },
+  { key:"manageUsers",  label:"Kullanıcı yönetimi" },
 ];
+
+const DEFAULT_PERMS = {
+  admin:     {viewCases:true, editCases:true, deleteCases:true, viewFinance:true, addFinance:true, addLawyer:true, deleteLawyer:true, manageUsers:true},
+  senior:    {viewCases:true, editCases:true, deleteCases:true, viewFinance:true, addFinance:true, addLawyer:false,deleteLawyer:false,manageUsers:false},
+  lawyer:    {viewCases:true, editCases:true, deleteCases:false,viewFinance:true, addFinance:false,addLawyer:false,deleteLawyer:false,manageUsers:false},
+  assistant: {viewCases:true, editCases:false,deleteCases:false,viewFinance:false,addFinance:false,addLawyer:false,deleteLawyer:false,manageUsers:false},
+};
 
 const LawyerForm = ({ initial, usedColors, onSave, onClose }) => {
   const nc=LAWYER_COLORS.find(c=>!usedColors.includes(c))||LAWYER_COLORS[0];
   const [form,setForm]=useState(initial||{name:"",title:"Avukat",barNo:"",phone:"",email:"",color:nc,photo:"",notes:"",systemRole:"lawyer",tempPassword:""});
   const [creating, setCreating] = useState(false);
+  const [perms, setPerms] = useState({
+    admin:     {...DEFAULT_PERMS.admin},
+    senior:    {...DEFAULT_PERMS.senior},
+    lawyer:    {...DEFAULT_PERMS.lawyer},
+    assistant: {...DEFAULT_PERMS.assistant},
+  });
+  const [savingPerms, setSavingPerms] = useState(false);
+  const [permsSaved, setPermsSaved] = useState(false);
+
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const hp=(e)=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>set("photo",ev.target.result);r.readAsDataURL(f);};
 
-  const selectedRole = ROLE_OPTIONS.find(r=>r.value===form.systemRole) || ROLE_OPTIONS[2];
+  useEffect(()=>{
+    supabase.from("permissions").select("*").then(({data})=>{
+      if(data&&data.length>0){
+        const pm={admin:{...DEFAULT_PERMS.admin},senior:{...DEFAULT_PERMS.senior},lawyer:{...DEFAULT_PERMS.lawyer},assistant:{...DEFAULT_PERMS.assistant}};
+        data.forEach(r=>{if(pm[r.role])pm[r.role]={...pm[r.role],...r.perms};});
+        setPerms(pm);
+      }
+    });
+  },[]);
+
+  const togglePerm=(role,key)=>{
+    if(role==="admin"&&(key==="viewCases"||key==="manageUsers"))return;
+    setPerms(p=>({...p,[role]:{...p[role],[key]:!p[role][key]}}));
+    setPermsSaved(false);
+  };
+
+  const savePerms=async()=>{
+    setSavingPerms(true);
+    for(const role of ["admin","senior","lawyer","assistant"]){
+      await supabase.from("permissions").upsert({role,perms:perms[role],updated_at:new Date().toISOString()},{onConflict:"role"});
+    }
+    setSavingPerms(false);setPermsSaved(true);setTimeout(()=>setPermsSaved(false),2000);
+  };
 
   return (
     <Modal title={initial?.id?"Avukatı Düzenle":"Yeni Avukat Ekle"} onClose={onClose} wide>
-
-      {/* Profil fotoğrafı */}
+      {/* Fotoğraf */}
       <div style={{display:"flex",alignItems:"flex-start",gap:"1rem",marginBottom:"1rem"}}>
         <div style={{width:64,height:64,borderRadius:"50%",background:"#0d1420",border:`3px solid ${form.color}`,overflow:"hidden",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
           {form.photo?<img src={form.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<Icon name="user" size={24}/>}
@@ -207,9 +244,7 @@ const LawyerForm = ({ initial, usedColors, onSave, onClose }) => {
         <div style={{flex:1}}>
           <p style={{margin:"0 0 5px",fontSize:11,color:"#9ca3af",letterSpacing:"0.06em",textTransform:"uppercase"}}>Profil Fotoğrafı</p>
           <input type="file" accept="image/*" onChange={hp} style={{display:"block",width:"100%",background:"#0d1420",border:"1px solid #1e2d45",borderRadius:8,color:"#9ca3af",padding:"0.35rem 0.5rem",fontSize:11,cursor:"pointer",boxSizing:"border-box",marginBottom:7}}/>
-          <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-            {LAWYER_COLORS.map(c=><div key={c} onClick={()=>set("color",c)} style={{width:16,height:16,borderRadius:"50%",background:c,cursor:"pointer",border:form.color===c?"2px solid #fff":"2px solid transparent"}}/>)}
-          </div>
+          <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>{LAWYER_COLORS.map(c=><div key={c} onClick={()=>set("color",c)} style={{width:16,height:16,borderRadius:"50%",background:c,cursor:"pointer",border:form.color===c?"2px solid #fff":"2px solid transparent"}}/>)}</div>
         </div>
       </div>
 
@@ -226,53 +261,76 @@ const LawyerForm = ({ initial, usedColors, onSave, onClose }) => {
         </div>
       </SBox>
 
-      {/* Sistem girişi — sadece yeni kayıtta */}
-      {!initial?.id && (
+      {/* Sistem girişi */}
+      {!initial?.id&&(
         <SBox title="🔐 Sistem Girişi" color="#e2c97e">
-          <p style={{fontSize:12,color:"#6b7280",marginBottom:"0.75rem",marginTop:0}}>
-            Bu bilgilerle avukat sisteme giriş yapacak. E-posta yukarıdakiyle aynı olabilir.
-          </p>
+          <p style={{fontSize:12,color:"#6b7280",marginBottom:"0.75rem",marginTop:0}}>Bu bilgilerle avukat sisteme giriş yapacak.</p>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 1rem"}}>
             <Input label="Giriş E-postası *" type="email" value={form.email} onChange={e=>set("email",e.target.value)} placeholder="avukat@buro.com"/>
             <Input label="Geçici Şifre *" type="text" value={form.tempPassword} onChange={e=>set("tempPassword",e.target.value)} placeholder="En az 6 karakter"/>
           </div>
-          <div style={{background:"#0a1628",borderRadius:8,padding:"0.6rem 0.85rem",fontSize:11,color:"#4b5563"}}>
-            💡 Bu bilgileri avukata iletin. İlk girişten sonra şifresini değiştirebilir.
-          </div>
+          <div style={{background:"#0a1628",borderRadius:8,padding:"0.6rem 0.85rem",fontSize:11,color:"#4b5563"}}>💡 Bu bilgileri avukata iletin. İlk girişten sonra şifresini değiştirebilir.</div>
         </SBox>
       )}
 
-      {/* Yetki seviyesi */}
-      <SBox title="🛡 Yetki Seviyesi" color="#a78bfa">
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.5rem",marginBottom:"1rem"}}>
+      {/* Bu kişinin rolü */}
+      <SBox title="🛡 Bu Kişinin Rol Ataması" color="#a78bfa">
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.5rem"}}>
           {ROLE_OPTIONS.map(r=>(
             <div key={r.value} onClick={()=>set("systemRole",r.value)}
-              style={{background:form.systemRole===r.value?"#1e2d45":"#070b14",border:`2px solid ${form.systemRole===r.value?"#a78bfa":"#1e2d45"}`,borderRadius:10,padding:"0.75rem 1rem",cursor:"pointer",transition:"all 0.15s"}}>
-              <div style={{fontWeight:700,fontSize:13,color:form.systemRole===r.value?"#e5e7eb":"#6b7280",marginBottom:3}}>{r.label}</div>
+              style={{background:form.systemRole===r.value?"#1e2d45":"#070b14",border:`2px solid ${form.systemRole===r.value?"#a78bfa":"#1e2d45"}`,borderRadius:10,padding:"0.65rem 0.9rem",cursor:"pointer"}}>
+              <div style={{fontWeight:700,fontSize:13,color:form.systemRole===r.value?"#e5e7eb":"#6b7280",marginBottom:2}}>{r.label}</div>
               <div style={{fontSize:11,color:"#4b5563"}}>{r.desc}</div>
             </div>
           ))}
         </div>
+      </SBox>
 
-        {/* Yetki tablosu */}
-        <div style={{background:"#070b14",borderRadius:8,overflow:"hidden"}}>
-          <div style={{display:"grid",gridTemplateColumns:"1fr repeat(4,40px)",padding:"0.4rem 0.75rem",background:"#1e2d45",gap:4}}>
-            <div style={{fontSize:10,color:"#9ca3af"}}>YETKİ</div>
-            {ROLE_OPTIONS.map(r=><div key={r.value} style={{fontSize:9,color:form.systemRole===r.value?"#e2c97e":"#4b5563",textAlign:"center",fontWeight:form.systemRole===r.value?800:400}}>{r.label.split(" ")[0]}</div>)}
-          </div>
-          {PERM_TABLE.map((p,i)=>(
-            <div key={p.label} style={{display:"grid",gridTemplateColumns:"1fr repeat(4,40px)",padding:"0.35rem 0.75rem",gap:4,background:i%2===0?"transparent":"#0a1628",borderTop:"1px solid #1e2d45"}}>
-              <div style={{fontSize:11,color:"#9ca3af"}}>{p.label}</div>
-              {["admin","senior","lawyer","assistant"].map(role=>(
-                <div key={role} style={{textAlign:"center",fontSize:13}}>
-                  {p[role]
-                    ? <span style={{color:"#10b981"}}>✓</span>
-                    : <span style={{color:"#374151"}}>✗</span>
-                  }
-                </div>
+      {/* Editlenebilir yetki tablosu */}
+      <SBox title="⚙️ Rol Yetki Ayarları (Tüm Sistem İçin Geçerli)" color="#f59e0b">
+        <p style={{margin:"0 0 0.75rem",fontSize:11,color:"#6b7280"}}>✓/✗ ikonlarına tıklayarak değiştirebilirsiniz. Kaydet butonuyla tüm sisteme yansır.</p>
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+            <thead>
+              <tr style={{background:"#1e2d45"}}>
+                <th style={{textAlign:"left",padding:"0.5rem 0.75rem",color:"#9ca3af",fontWeight:600}}>YETKİ</th>
+                {ROLE_OPTIONS.map(r=>(
+                  <th key={r.value} style={{textAlign:"center",padding:"0.5rem",color:r.value===form.systemRole?"#e2c97e":"#9ca3af",fontWeight:r.value===form.systemRole?800:600,minWidth:90}}>
+                    {r.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {PERM_KEYS.map((p,i)=>(
+                <tr key={p.key} style={{background:i%2===0?"transparent":"#0a1628",borderBottom:"1px solid #1e2d45"}}>
+                  <td style={{padding:"0.5rem 0.75rem",color:"#9ca3af"}}>{p.label}</td>
+                  {ROLE_OPTIONS.map(r=>{
+                    const locked=r.value==="admin"&&(p.key==="viewCases"||p.key==="manageUsers");
+                    const val=perms[r.value]?.[p.key]??false;
+                    return (
+                      <td key={r.value} style={{textAlign:"center",padding:"0.5rem"}}>
+                        <button onClick={()=>!locked&&togglePerm(r.value,p.key)}
+                          style={{background:"none",border:"none",cursor:locked?"default":"pointer",fontSize:18,opacity:locked?0.4:1,lineHeight:1}}
+                          title={locked?"Değiştirilemez":"Tıkla"}
+                        >
+                          {val
+                            ? <span style={{color:"#10b981"}}>✓</span>
+                            : <span style={{color:"#374151"}}>✗</span>
+                          }
+                        </button>
+                      </td>
+                    );
+                  })}
+                </tr>
               ))}
-            </div>
-          ))}
+            </tbody>
+          </table>
+        </div>
+        <div style={{display:"flex",justifyContent:"flex-end",marginTop:"0.75rem"}}>
+          <Btn small variant={permsSaved?"green":"ghost"} onClick={savePerms}>
+            {savingPerms?"⏳ Kaydediliyor...":permsSaved?"✓ Kaydedildi":"💾 Yetki Ayarlarını Kaydet"}
+          </Btn>
         </div>
       </SBox>
 
@@ -280,12 +338,10 @@ const LawyerForm = ({ initial, usedColors, onSave, onClose }) => {
         <Btn variant="ghost" onClick={onClose}>İptal</Btn>
         <Btn onClick={()=>{
           if(!form.name)return;
-          if(!initial?.id && !form.email)return;
-          if(!initial?.id && !form.tempPassword)return;
+          if(!initial?.id&&!form.email)return;
+          if(!initial?.id&&!form.tempPassword)return;
           onSave({...form,id:form.id||undefined});
-        }}>
-          {creating?"⏳ Oluşturuluyor...":"Kaydet"}
-        </Btn>
+        }}>Kaydet</Btn>
       </div>
     </Modal>
   );
@@ -1167,23 +1223,23 @@ export default function AvukatApp() {
 function MainPanel({ session, profile }) {
   // ── YETKİ SİSTEMİ ─────────────────────────────────────────────
   const role = profile.role || 'assistant';
-  const isAdmin     = role === "admin";
-  const isSenior    = role === "senior" || isAdmin;      // Kıdemli Avukat
-  const isLawyer    = role === "lawyer" || isSenior;     // Avukat
-  const isAssistant = role === "assistant";
+  const isAdmin = role === "admin";
+  const isSenior = role === "senior" || isAdmin;
+  const isLawyer = role === "lawyer" || isSenior;
 
-  // Yetki kontrolleri
+  // Veritabanından gelen yetkiler — yoksa varsayılan
+  const myPerms = allPerms?.[role] || {};
   const can = {
-    viewCases:      true,                          // herkes
-    editCases:      isLawyer,                      // avukat+
-    deleteCases:    isSenior,                      // kıdemli+
-    viewFinance:    isLawyer,                      // avukat+
-    addFinance:     isSenior,                      // kıdemli+
-    viewAvukatlar:  true,                          // herkes
-    addLawyer:      isAdmin,                       // sadece admin
-    deleteLawyer:   isAdmin,                       // sadece admin
-    manageUsers:    isAdmin,                       // sadece admin
-    deleteNeedsApproval: role === "lawyer",        // avukat silmek için admin onayı
+    viewCases:      myPerms.viewCases      ?? true,
+    editCases:      myPerms.editCases      ?? isLawyer,
+    deleteCases:    myPerms.deleteCases    ?? isSenior,
+    viewFinance:    myPerms.viewFinance    ?? isLawyer,
+    addFinance:     myPerms.addFinance     ?? isSenior,
+    viewAvukatlar:  true,
+    addLawyer:      myPerms.addLawyer      ?? isAdmin,
+    deleteLawyer:   myPerms.deleteLawyer   ?? isAdmin,
+    manageUsers:    myPerms.manageUsers    ?? isAdmin,
+    deleteNeedsApproval: role === "lawyer",
   };
   const [tab,setTab]=useState("dashboard");
   const [cases,setCases]=useState([]);
@@ -1198,6 +1254,7 @@ function MainPanel({ session, profile }) {
   const [fClient,setFClient]=useState("Tümü");
   const [ready,setReady]=useState(false);
   const [toast,setToast]=useState(null);
+  const [allPerms,setAllPerms]=useState(null); // veritabanından gelen yetkiler
   const firmInfo={name:"Avukatlık Bürosu",address:"",tax:""};
 
   // ── Supabase'den veri yükle ──────────────────────────────────────
@@ -1225,12 +1282,19 @@ function MainPanel({ session, profile }) {
   }) : null;
 
   useEffect(()=>{(async()=>{
-    const [l,c,i,e]=await Promise.all([
+    const [l,c,i,e,p]=await Promise.all([
       fetchAll("lawyers"),fetchAll("cases"),
       fetchAll("incomes"),fetchAll("expenses"),
+      supabase.from("permissions").select("*"),
     ]);
     setLawyers(l.map(toCC)); setCases(c.map(toCC));
     setIncomes(i.map(toCC)); setExpenses(e.map(toCC));
+    // Yetkileri rol bazlı map'e çevir
+    if(p.data) {
+      const pm = {};
+      p.data.forEach(r=>{ pm[r.role] = r.perms; });
+      setAllPerms(pm);
+    }
     setReady(true);
   })();},[]);
 
