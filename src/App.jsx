@@ -77,11 +77,11 @@ const Icon = ({ name, size=18 }) => {
 
 // ─── SHARED UI ─────────────────────────────────────────────────────
 const Modal = ({ title, onClose, children, wide, xl }) => (
-  <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.55)",backdropFilter:"blur(6px)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:"1rem"}}>
-    <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:xl?1020:wide?780:520,maxHeight:"92vh",overflow:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.12),0 0 0 1px rgba(0,0,0,0.06)"}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"1rem 1.5rem",borderBottom:"1px solid #f1f5f9",position:"sticky",top:0,background:"#fff",zIndex:10}}>
-        <h3 style={{margin:0,color:"#0f172a",fontFamily:"'DM Serif Display',Georgia,serif",fontSize:"1.05rem",fontWeight:600}}>{title}</h3>
-        <button onClick={onClose} style={{background:"#f8fafc",border:"1px solid #e2e8f0",color:"#64748b",cursor:"pointer",padding:"4px 8px",borderRadius:6,display:"flex",alignItems:"center"}}><Icon name="close" size={14}/></button>
+  <div style={{position:"fixed",inset:0,background:"rgba(10,14,23,0.88)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:"1rem"}}>
+    <div style={{background:"#111827",border:"1px solid #1e2d45",borderRadius:16,width:"100%",maxWidth:xl?1020:wide?800:540,maxHeight:"92vh",overflow:"auto",boxShadow:"0 25px 60px rgba(0,0,0,0.6)"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"1.1rem 1.5rem",borderBottom:"1px solid #1e2d45",position:"sticky",top:0,background:"#111827",zIndex:10}}>
+        <h3 style={{margin:0,color:"#e2c97e",fontFamily:"'Playfair Display',serif",fontSize:"1rem"}}>{title}</h3>
+        <button onClick={onClose} style={{background:"none",border:"none",color:"#6b7280",cursor:"pointer",padding:4}}><Icon name="close"/></button>
       </div>
       <div style={{padding:"1.5rem"}}>{children}</div>
     </div>
@@ -89,42 +89,40 @@ const Modal = ({ title, onClose, children, wide, xl }) => (
 );
 
 const Input = ({ label, ...props }) => (
-  <div style={{marginBottom:"0.85rem"}}>
-    {label&&<label style={{display:"block",fontSize:11,color:"#64748b",marginBottom:5,letterSpacing:"0.04em",fontWeight:600,textTransform:"uppercase"}}>{label}</label>}
+  <div style={{marginBottom:"0.9rem"}}>
+    {label&&<label style={{display:"block",fontSize:11,color:"#9ca3af",marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase"}}>{label}</label>}
     {props.as==="textarea"
-      ? <textarea {...props} as={undefined} style={{width:"100%",background:"#f8fafc",border:"1px solid #e2e8f0",borderRadius:8,color:"#0f172a",padding:"0.6rem 0.8rem",fontSize:13,outline:"none",boxSizing:"border-box",resize:"vertical",minHeight:70,fontFamily:"inherit",...props.style}}/>
-      : <input {...props} style={{width:"100%",background:"#f8fafc",border:"1px solid #e2e8f0",borderRadius:8,color:"#0f172a",padding:"0.6rem 0.8rem",fontSize:13,outline:"none",boxSizing:"border-box",...props.style}}/>
+      ? <textarea {...props} as={undefined} style={{width:"100%",background:"#0d1420",border:"1px solid #1e2d45",borderRadius:8,color:"#e5e7eb",padding:"0.55rem 0.75rem",fontSize:13,outline:"none",boxSizing:"border-box",resize:"vertical",minHeight:70,fontFamily:"inherit",...props.style}}/>
+      : <input {...props} style={{width:"100%",background:"#0d1420",border:"1px solid #1e2d45",borderRadius:8,color:"#e5e7eb",padding:"0.55rem 0.75rem",fontSize:13,outline:"none",boxSizing:"border-box",...props.style}}/>
     }
   </div>
 );
 
 const Sel = ({ label, children, ...props }) => (
-  <div style={{marginBottom:"0.85rem"}}>
-    {label&&<label style={{display:"block",fontSize:11,color:"#64748b",marginBottom:5,letterSpacing:"0.04em",fontWeight:600,textTransform:"uppercase"}}>{label}</label>}
-    <select {...props} style={{width:"100%",background:"#f8fafc",border:"1px solid #e2e8f0",borderRadius:8,color:"#0f172a",padding:"0.6rem 0.8rem",fontSize:13,outline:"none",boxSizing:"border-box"}}>{children}</select>
+  <div style={{marginBottom:"0.9rem"}}>
+    {label&&<label style={{display:"block",fontSize:11,color:"#9ca3af",marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase"}}>{label}</label>}
+    <select {...props} style={{width:"100%",background:"#0d1420",border:"1px solid #1e2d45",borderRadius:8,color:"#e5e7eb",padding:"0.55rem 0.75rem",fontSize:13,outline:"none",boxSizing:"border-box"}}>{children}</select>
   </div>
 );
 
 const Btn = ({ children, variant="primary", small, ...props }) => {
   const st={
-    primary:{background:"#1e40af",color:"#fff",fontWeight:600},
-    ghost:  {background:"#fff",color:"#475569",border:"1px solid #e2e8f0"},
-    ai:     {background:"#eff6ff",color:"#1d4ed8",border:"1px solid #bfdbfe"},
-    danger: {background:"#fef2f2",color:"#dc2626",border:"1px solid #fecaca"},
-    green:  {background:"#059669",color:"#fff",fontWeight:600},
+    primary:{background:"linear-gradient(135deg,#b8962e,#e2c97e)",color:"#0a0e17",fontWeight:700},
+    ghost:  {background:"transparent",color:"#9ca3af",border:"1px solid #1e2d45"},
+    ai:     {background:"linear-gradient(135deg,#1e3a5f,#2d5a8e)",color:"#93c5fd",border:"1px solid #2d5a8e"},
+    danger: {background:"#7f1d1d",color:"#fca5a5",border:"1px solid #991b1b"},
+    green:  {background:"linear-gradient(135deg,#064e3b,#10b981)",color:"#fff",fontWeight:700},
   };
   return <button {...props} style={{...st[variant],border:st[variant].border||"none",borderRadius:8,padding:small?"0.35rem 0.7rem":"0.55rem 1.1rem",fontSize:small?12:13,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:6,fontFamily:"inherit",...props.style}}>{children}</button>;
 };
 
-const Badge = ({ color, children }) => {
-  const map={"#60a5fa":["#eff6ff","#1d4ed8"],"#f87171":["#fef2f2","#dc2626"],"#10b981":["#f0fdf4","#059669"],"#f59e0b":["#fffbeb","#d97706"],"#a78bfa":["#f5f3ff","#7c3aed"],"#6b7280":["#f9fafb","#374151"],"#e2c97e":["#fefce8","#854d0e"],"#fb923c":["#fff7ed","#ea580c"],"#34d399":["#ecfdf5","#047857"],"#fca5a5":["#fef2f2","#dc2626"]};
-  const [bg,tc]=map[color]||[color+"18",color];
-  return <span style={{display:"inline-block",padding:"2px 9px",borderRadius:20,fontSize:11,fontWeight:600,background:bg,color:tc}}>{children}</span>;
-};
+const Badge = ({ color, children }) => (
+  <span style={{display:"inline-block",padding:"2px 8px",borderRadius:20,fontSize:11,fontWeight:700,background:color+"22",color,border:`1px solid ${color}44`}}>{children}</span>
+);
 
-const SBox = ({ title, color="#1e40af", children }) => (
-  <div style={{background:"#f8fafc",border:"1px solid #e2e8f0",borderLeft:`3px solid ${color}`,borderRadius:"0 10px 10px 0",padding:"0.85rem 1.1rem",marginBottom:"0.75rem"}}>
-    <div style={{fontSize:10,color,fontWeight:700,letterSpacing:"0.07em",textTransform:"uppercase",marginBottom:"0.65rem"}}>{title}</div>
+const SBox = ({ title, color="#60a5fa", children }) => (
+  <div style={{background:"#0a1628",border:`1px solid ${color}33`,borderRadius:10,padding:"0.85rem 1.1rem",marginBottom:"0.75rem"}}>
+    <div style={{fontSize:11,color,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:"0.65rem"}}>{title}</div>
     {children}
   </div>
 );
@@ -970,11 +968,11 @@ function LoginScreen({ onLogin }) {
   };
 
   const S = {
-    page: { minHeight:"100vh", background:"linear-gradient(135deg,#f0f4ff 0%,#fafafa 50%,#f0f9ff 100%)", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'DM Sans','Inter',sans-serif" },
-    box:  { background:"#fff", border:"1px solid #e2e8f0", borderRadius:16, padding:"2.5rem", width:"100%", maxWidth:420, boxShadow:"0 4px 24px rgba(0,0,0,0.08),0 1px 3px rgba(0,0,0,0.06)" },
-    inp:  { width:"100%", background:"#f8fafc", border:"1px solid #e2e8f0", borderRadius:8, color:"#0f172a", padding:"0.7rem 0.9rem", fontSize:14, outline:"none", boxSizing:"border-box", marginBottom:"1rem" },
-    btn:  { width:"100%", background:"#1e40af", border:"none", color:"#fff", fontWeight:700, borderRadius:8, padding:"0.75rem", fontSize:15, cursor:"pointer", fontFamily:"inherit", letterSpacing:"0.01em" },
-    lbl:  { display:"block", fontSize:11, color:"#64748b", marginBottom:6, letterSpacing:"0.05em", textTransform:"uppercase", fontWeight:600 },
+    page: { minHeight:"100vh", background:"#070b14", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'DM Sans','Inter',sans-serif" },
+    box:  { background:"#0d1420", border:"1px solid #1e2d45", borderRadius:16, padding:"2.5rem", width:"100%", maxWidth:420, boxShadow:"0 25px 60px rgba(0,0,0,0.5)" },
+    inp:  { width:"100%", background:"#070b14", border:"1px solid #1e2d45", borderRadius:8, color:"#e5e7eb", padding:"0.7rem 0.9rem", fontSize:14, outline:"none", boxSizing:"border-box", marginBottom:"1rem" },
+    btn:  { width:"100%", background:"linear-gradient(135deg,#b8962e,#e2c97e)", border:"none", color:"#0a0e17", fontWeight:800, borderRadius:8, padding:"0.75rem", fontSize:15, cursor:"pointer", fontFamily:"inherit" },
+    lbl:  { display:"block", fontSize:11, color:"#9ca3af", marginBottom:6, letterSpacing:"0.06em", textTransform:"uppercase" },
   };
 
   return (
@@ -982,18 +980,18 @@ function LoginScreen({ onLogin }) {
       <div style={S.box}>
         {/* Logo */}
         <div style={{ textAlign:"center", marginBottom:"2rem" }}>
-          <div style={{ width:48, height:48, background:"#1e40af", borderRadius:12, display:"inline-flex", alignItems:"center", justifyContent:"center", marginBottom:12 }}>
+          <div style={{ width:48, height:48, background:"linear-gradient(135deg,#b8962e,#e2c97e)", borderRadius:12, display:"inline-flex", alignItems:"center", justifyContent:"center", marginBottom:12 }}>
             <span style={{ fontSize:24 }}>⚖️</span>
           </div>
-          <div style={{ fontFamily:"'DM Serif Display',Georgia,serif", fontSize:22, fontWeight:600, color:"#0f172a", marginTop:4 }}>LexDesk</div>
-          <div style={{ fontSize:12, color:"#94a3b8", marginTop:4 }}>Avukatlık Bürosu Yönetim Sistemi</div>
+          <div style={{ fontFamily:"'Playfair Display',serif", fontSize:22, fontWeight:700, color:"#e2c97e" }}>LexDesk</div>
+          <div style={{ fontSize:12, color:"#4b5563", marginTop:4 }}>Avukatlık Bürosu Yönetim Sistemi</div>
         </div>
 
         {/* Tab */}
-        <div style={{ display:"flex", background:"#f1f5f9", borderRadius:10, padding:4, marginBottom:"1.5rem" }}>
+        <div style={{ display:"flex", background:"#070b14", borderRadius:8, padding:4, marginBottom:"1.5rem" }}>
           {[["login","Giriş Yap"],["register","Kayıt Ol"]].map(([m,l])=>(
             <button key={m} onClick={()=>{setMode(m);setError("");setInfo("");}}
-              style={{ flex:1, background:mode===m?"#fff":"transparent", border:"none", color:mode===m?"#1e40af":"#64748b", borderRadius:7, padding:"0.5rem", fontSize:13, cursor:"pointer", fontWeight:mode===m?600:400, boxShadow:mode===m?"0 1px 3px rgba(0,0,0,0.1)":"none" }}>
+              style={{ flex:1, background:mode===m?"#1e2d45":"transparent", border:"none", color:mode===m?"#e2c97e":"#6b7280", borderRadius:6, padding:"0.5rem", fontSize:13, cursor:"pointer", fontWeight:mode===m?700:400 }}>
               {l}
             </button>
           ))}
@@ -1013,16 +1011,16 @@ function LoginScreen({ onLogin }) {
             placeholder="••••••••" onKeyDown={e=>e.key==="Enter"&&handle()}
             style={{...S.inp, marginBottom:0, paddingRight:"2.5rem"}}/>
           <button onClick={()=>setShowPass(p=>!p)}
-            style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:"#94a3b8", cursor:"pointer", padding:4, fontSize:16 }}>
+            style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:"#6b7280", cursor:"pointer", padding:4, fontSize:16 }}>
             {showPass ? "🙈" : "👁️"}
           </button>
         </div>
 
-        {error && <div style={{ background:"#fef2f2", border:"1px solid #fecaca", borderRadius:8, padding:"0.6rem 0.9rem", color:"#dc2626", fontSize:13, marginBottom:"1rem" }}>{error}</div>}
-        {info  && <div style={{ background:"#f0fdf4", border:"1px solid #bbf7d0", borderRadius:8, padding:"0.6rem 0.9rem", color:"#16a34a", fontSize:13, marginBottom:"1rem" }}>{info}</div>}
+        {error && <div style={{ background:"#7f1d1d22", border:"1px solid #991b1b", borderRadius:8, padding:"0.6rem 0.9rem", color:"#fca5a5", fontSize:13, marginBottom:"1rem" }}>{error}</div>}
+        {info  && <div style={{ background:"#06421222", border:"1px solid #10b981", borderRadius:8, padding:"0.6rem 0.9rem", color:"#10b981", fontSize:13, marginBottom:"1rem" }}>{info}</div>}
 
         <button style={S.btn} onClick={handle} disabled={loading}>
-          {loading ? "⏳ Lütfen bekleyin..." : mode==="login" ? "Giriş Yap →" : "Kayıt Ol →"}
+          {loading ? "⏳ Lütfen bekleyin..." : mode==="login" ? "Giriş Yap" : "Kayıt Ol"}
         </button>
 
         {mode==="login" && (
@@ -1338,13 +1336,13 @@ function MainPanel({ session, profile }) {
   expenses.forEach(e=>{expByCat[e.category]=(expByCat[e.category]||0)+(+e.amount||0);});
 
   const S={
-    app:    {minHeight:"100vh",width:"100%",background:"#f8fafc",color:"#0f172a",fontFamily:"'DM Sans','Inter',sans-serif",display:"flex",flexDirection:"column"},
-    navbar: {width:"100%",background:"#fff",borderBottom:"1px solid #e2e8f0",display:"flex",flexDirection:"row",alignItems:"center",padding:"0 1.5rem",height:56,minHeight:56,flexShrink:0,position:"sticky",top:0,zIndex:100,gap:"0.15rem",overflowX:"auto",overflowY:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,0.06)"},
-    ni:     (a)=>({display:"flex",alignItems:"center",gap:6,padding:"0.4rem 0.85rem",borderRadius:8,cursor:"pointer",color:a?"#1e40af":"#64748b",background:a?"#eff6ff":"transparent",fontWeight:a?600:400,fontSize:13,border:"none",whiteSpace:"nowrap",flexShrink:0,letterSpacing:"0.01em"}),
-    header: {padding:"1rem 1.5rem",borderBottom:"1px solid #f1f5f9",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:"0.75rem",background:"#fff"},
-    content:{padding:"1.5rem"},
-    card:   {background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"1.25rem 1.5rem",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"},
-    sc:     {background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"1.1rem",flex:1,boxShadow:"0 1px 2px rgba(0,0,0,0.04)"},
+    app:    {minHeight:"100vh",width:"100%",background:"#070b14",color:"#e5e7eb",fontFamily:"'DM Sans','Inter',sans-serif",display:"flex",flexDirection:"column"},
+    navbar: {width:"100%",background:"#0a0f1e",borderBottom:"1px solid #1e2d45",display:"flex",flexDirection:"row",alignItems:"center",padding:"0 1.25rem",height:54,minHeight:54,flexShrink:0,position:"sticky",top:0,zIndex:100,gap:"0.15rem",overflowX:"auto",overflowY:"hidden"},
+    ni:     (a)=>({display:"flex",alignItems:"center",gap:6,padding:"0.4rem 0.8rem",borderRadius:8,cursor:"pointer",color:a?"#e2c97e":"#6b7280",background:a?"#1a2540":"transparent",fontWeight:a?700:400,fontSize:13,border:"none",whiteSpace:"nowrap",flexShrink:0}),
+    header: {padding:"1rem 1.5rem",borderBottom:"1px solid #1e2d45",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:"0.75rem"},
+    content:{padding:"1.25rem 1.5rem"},
+    card:   {background:"#0d1420",border:"1px solid #1e2d45",borderRadius:14,padding:"1.25rem 1.5rem"},
+    sc:     {background:"#0d1420",border:"1px solid #1e2d45",borderRadius:14,padding:"1.1rem",flex:1},
   };
 
   const allTabs=[
@@ -1379,33 +1377,31 @@ function MainPanel({ session, profile }) {
     <div style={{...S.app,flexDirection:"column"}}>
       {/* NAVBAR */}
       <div style={{...S.navbar,flexDirection:"row"}}>
-        <div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0,marginRight:12}}>
-          <div style={{width:30,height:30,background:"#1e40af",borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-            <Icon name="scale" size={15} color="#fff"/>
-          </div>
-          <span style={{color:"#0f172a",fontFamily:"'DM Serif Display',Georgia,serif",fontWeight:600,fontSize:16,whiteSpace:"nowrap",letterSpacing:"-0.01em"}}>LexDesk</span>
+        <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0,marginRight:8}}>
+          <div style={{width:28,height:28,background:"linear-gradient(135deg,#b8962e,#e2c97e)",borderRadius:7,display:"flex",alignItems:"center",justifyContent:"center"}}><Icon name="scale" size={14}/></div>
+          <span style={{color:"#e2c97e",fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:14,whiteSpace:"nowrap"}}>LexDesk</span>
         </div>
-        <div style={{width:1,height:20,background:"#e2e8f0",flexShrink:0,marginRight:8}}/>
+        <div style={{width:1,height:22,background:"#1e2d45",flexShrink:0,marginRight:4}}/>
         {tabs.map(t=><button key={t.id} style={S.ni(tab===t.id)} onClick={()=>setTab(t.id)}><Icon name={t.icon} size={14}/>{t.label}</button>)}
         <div style={{flex:1}}/>
         {/* Akıllı Asistan */}
         <button onClick={()=>setModal({type:"assistant"})}
-          style={{background:"#eff6ff",border:"1px solid #bfdbfe",color:"#1d4ed8",borderRadius:8,padding:"0.35rem 0.85rem",fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",gap:5,flexShrink:0,marginRight:6,fontWeight:500}}>
+          style={{background:"linear-gradient(135deg,#1e3a5f,#2d5a8e)",border:"1px solid #2d5a8e",color:"#93c5fd",borderRadius:8,padding:"0.35rem 0.85rem",fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",gap:5,flexShrink:0,marginRight:6}}>
           🎤 Asistan
         </button>
         <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
-          <Badge color={isAdmin?"#1e40af":isSenior?"#059669":isLawyer?"#0369a1":"#7c3aed"}>
-            {isAdmin?"👑 Admin":isSenior?"⭐ Kıdemli":isLawyer?"⚖️ Avukat":"📋 Asistan"}
+          <Badge color={isAdmin?"#e2c97e":isSenior?"#10b981":isLawyer?"#60a5fa":"#a78bfa"}>
+            {isAdmin?"👑 Admin":isSenior?"⭐ Kıdemli Avukat":isLawyer?"⚖️ Avukat":"📋 Asistan"}
           </Badge>
-          <span style={{fontSize:12,color:"#64748b",whiteSpace:"nowrap"}}>{profile.full_name||session.user.email}</span>
+          <span style={{fontSize:12,color:"#6b7280",whiteSpace:"nowrap"}}>{profile.full_name||session.user.email}</span>
           {can.manageUsers&&(
             <button onClick={()=>setModal({type:"userManagement"})}
-              style={{background:"#f8fafc",border:"1px solid #e2e8f0",color:"#374151",borderRadius:7,padding:"0.3rem 0.65rem",cursor:"pointer",fontSize:12,whiteSpace:"nowrap"}}>
+              style={{background:"#1e2d45",border:"none",color:"#e2c97e",borderRadius:7,padding:"0.3rem 0.65rem",cursor:"pointer",fontSize:12,whiteSpace:"nowrap"}}>
               👥 Kullanıcılar
             </button>
           )}
           <button onClick={()=>supabase.auth.signOut()}
-            style={{background:"#f8fafc",border:"1px solid #e2e8f0",color:"#64748b",borderRadius:7,padding:"0.3rem 0.65rem",cursor:"pointer",fontSize:12}}>
+            style={{background:"#1e2d45",border:"none",color:"#9ca3af",borderRadius:7,padding:"0.3rem 0.65rem",cursor:"pointer",fontSize:12}}>
             Çıkış
           </button>
         </div>
@@ -1824,7 +1820,7 @@ function MainPanel({ session, profile }) {
       {modal?.type==="assistant"&&<SmartAssistant cases={cases} incomes={incomes} expenses={expenses} lawyers={lawyers} onClose={()=>setModal(null)}/>}
 
       {/* TOAST */}
-      {toast&&<div style={{position:"fixed",bottom:"2rem",right:"2rem",background:"#fff",border:"1px solid #bbf7d0",borderRadius:10,padding:"0.75rem 1.25rem",color:"#15803d",fontSize:13,fontWeight:600,display:"flex",alignItems:"center",gap:8,boxShadow:"0 8px 30px rgba(0,0,0,0.1)",zIndex:2000}}><Icon name="check" size={14}/>{toast}</div>}
+      {toast&&<div style={{position:"fixed",bottom:"2rem",right:"2rem",background:"#0d1420",border:"1px solid #10b981",borderRadius:10,padding:"0.75rem 1.25rem",color:"#10b981",fontSize:13,fontWeight:600,display:"flex",alignItems:"center",gap:8,boxShadow:"0 8px 30px rgba(0,0,0,0.5)",zIndex:2000}}><Icon name="check" size={14}/>{toast}</div>}
     </div>
   );
 }
