@@ -219,6 +219,8 @@ const CaseForm = ({ initial, lawyers, onSave, onClose }) => {
   });
   const [analyzing, setAnalyzing] = useState(false);
   const [contractFile, setContractFile] = useState(null);
+  const [analyzeMode, setAnalyzeMode] = useState("file");
+  const [pasteText, setPasteText] = useState("");
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const hp=(e)=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>set("photo",ev.target.result);r.readAsDataURL(f);};
   const G3={display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"0 1.1rem"};
@@ -321,26 +323,71 @@ const CaseForm = ({ initial, lawyers, onSave, onClose }) => {
   return (
     <Modal title={initial?.id?"Davayı Düzenle":"Yeni Dava Aç"} onClose={onClose} xl>
       {/* Görsel */}
-      {/* Sözleşme / Vekâletname Yükleme + AI Analiz */}
+      {/* Sözleşme / Vekâletname — AI Otomatik Doldurur */}
       <div style={{background:"#0a1628",border:"1px solid #2d5a8e",borderRadius:10,padding:"1rem 1.25rem",marginBottom:"0.75rem"}}>
         <div style={{fontSize:11,color:"#60a5fa",fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:"0.65rem"}}>
-          🤖 Sözleşme / Vekâletname Yükle — AI Otomatik Doldurur
+          🤖 Sözleşme / Vekâletname — AI Otomatik Doldurur
         </div>
-        <div style={{display:"flex",alignItems:"center",gap:"1rem",flexWrap:"wrap"}}>
-          <label style={{background:"linear-gradient(135deg,#1e3a5f,#2d5a8e)",border:"1px solid #2d5a8e",color:"#93c5fd",borderRadius:8,padding:"0.45rem 1rem",fontSize:12,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:6,flexShrink:0}}>
-            <Icon name="upload" size={13}/>
-            {analyzing ? "⏳ AI analiz ediyor..." : "PDF veya Word Yükle"}
-            <input type="file" accept=".pdf,.doc,.docx,.txt" onChange={handleContractUpload} style={{display:"none"}} disabled={analyzing}/>
-          </label>
-          {contractFile && !analyzing && (
-            <span style={{fontSize:12,color:"#10b981"}}>✓ {contractFile.name} — Form dolduruldu</span>
-          )}
-          {analyzing && (
-            <span style={{fontSize:12,color:"#f59e0b"}}>⏳ AI belgeyi okuyup formu dolduruyor...</span>
-          )}
+
+        {/* Sekme seçici */}
+        <div style={{display:"flex",background:"#070b14",borderRadius:8,padding:3,marginBottom:"0.75rem",width:"fit-content",gap:2}}>
+          {[["file","📎 Dosya Yükle"],["paste","📋 Metin Yapıştır"]].map(([m,l])=>(
+            <button key={m} onClick={()=>setAnalyzeMode(m)}
+              style={{background:analyzeMode===m?"#1e3a5f":"transparent",border:"none",color:analyzeMode===m?"#93c5fd":"#6b7280",borderRadius:6,padding:"0.35rem 0.85rem",fontSize:12,cursor:"pointer",fontFamily:"inherit",fontWeight:analyzeMode===m?700:400}}>
+              {l}
+            </button>
+          ))}
         </div>
+
+        {analyzeMode==="file" ? (
+          <div style={{display:"flex",alignItems:"center",gap:"1rem",flexWrap:"wrap"}}>
+            <label style={{background:"linear-gradient(135deg,#1e3a5f,#2d5a8e)",border:"1px solid #2d5a8e",color:"#93c5fd",borderRadius:8,padding:"0.45rem 1rem",fontSize:12,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:6,flexShrink:0}}>
+              <Icon name="upload" size={13}/>
+              {analyzing?"⏳ Analiz ediliyor...":"PDF veya Word Yükle"}
+              <input type="file" accept=".pdf,.doc,.docx,.txt" onChange={handleContractUpload} style={{display:"none"}} disabled={analyzing}/>
+            </label>
+            {contractFile&&!analyzing&&<span style={{fontSize:12,color:"#10b981"}}>✓ {contractFile.name} — Form dolduruldu</span>}
+            {analyzing&&<span style={{fontSize:12,color:"#f59e0b"}}>⏳ AI formu dolduruyor...</span>}
+          </div>
+        ) : (
+          <div>
+            <textarea
+              value={pasteText}
+              onChange={e=>setPasteText(e.target.value)}
+              placeholder="Sözleşme veya vekâletname metnini buraya yapıştırın..."
+              style={{width:"100%",background:"#070b14",border:"1px solid #1e3a5f",borderRadius:8,color:"#e5e7eb",padding:"0.75rem",fontSize:13,outline:"none",boxSizing:"border-box",resize:"vertical",minHeight:100,fontFamily:"inherit",marginBottom:"0.5rem"}}
+            />
+            <button
+              onClick={async()=>{
+                if(!pasteText.trim()) return;
+                setAnalyzing(true);
+                try {
+                  const res = await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},
+                    body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:800,
+                      messages:[{role:'user',content:`Aşağıdaki hukuki metni analiz et ve sadece bu JSON'u döndür:\n{"title":"dava başlığı","client":"müvekkil","plaintiff":"davacı","defendant":"davalı","type":"dava türü (${CASE_TYPES.join('/')})","expectedFee":"vekalet ücreti rakam","caseValue":"dava değeri rakam","notes":"özet"}\n\nMetin:\n${pasteText.substring(0,6000)}`}]})});
+                  const data=await res.json();
+                  const txt=data.content?.filter(b=>b.type==='text').map(b=>b.text).join('')||'';
+                  const parsed=JSON.parse(txt.replace(/```json|```/g,'').trim());
+                  setForm(p=>({...p,
+                    title:parsed.title||p.title, client:parsed.client||p.client,
+                    plaintiff:parsed.plaintiff||p.plaintiff, defendant:parsed.defendant||p.defendant,
+                    type:CASE_TYPES.includes(parsed.type)?parsed.type:p.type,
+                    expectedFee:parsed.expectedFee?String(parsed.expectedFee).replace(/\D/g,''):p.expectedFee,
+                    caseValue:parsed.caseValue?String(parsed.caseValue).replace(/\D/g,''):p.caseValue,
+                    notes:parsed.notes||p.notes,
+                  }));
+                } catch(e){ alert('Analiz hatası: '+e.message); }
+                setAnalyzing(false);
+              }}
+              disabled={analyzing||!pasteText.trim()}
+              style={{background:"linear-gradient(135deg,#1e3a5f,#2d5a8e)",border:"1px solid #2d5a8e",color:"#93c5fd",borderRadius:8,padding:"0.45rem 1rem",fontSize:12,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:6,fontFamily:"inherit",opacity:!pasteText.trim()?0.5:1}}>
+              <Icon name="send" size={13}/>
+              {analyzing?"⏳ Analiz ediliyor...":"AI ile Doldur"}
+            </button>
+          </div>
+        )}
         <p style={{margin:"8px 0 0",fontSize:11,color:"#4b5563"}}>
-          Müvekkil sözleşmesi veya vekâletname yükleyin. AI taraflar, dava türü ve ücret bilgilerini otomatik tespit eder.
+          AI taraflar, dava türü ve ücret bilgilerini otomatik tespit eder.
         </p>
       </div>
 
