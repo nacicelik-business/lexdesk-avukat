@@ -170,16 +170,39 @@ const AIAssistant = ({ caseData, mode, onClose }) => {
 };
 
 // ─── LAWYER FORM ───────────────────────────────────────────────────
+const ROLE_OPTIONS = [
+  { value:"admin",     label:"👑 Admin",            desc:"Tam yetki + kullanıcı yönetimi" },
+  { value:"senior",    label:"⭐ Kıdemli Avukat",   desc:"Tüm işlemler, dava silebilir, gelir/gider ekleyebilir" },
+  { value:"lawyer",    label:"⚖️ Avukat",           desc:"Davaları görür/düzenler, finansalları görür" },
+  { value:"assistant", label:"📋 Asistan",          desc:"Sadece davaları görür, düzenleyemez, finansal yok" },
+];
+
+const PERM_TABLE = [
+  { label:"Dava görüntüle",    admin:true,  senior:true,  lawyer:true,  assistant:true  },
+  { label:"Dava ekle/düzenle", admin:true,  senior:true,  lawyer:true,  assistant:false },
+  { label:"Dava sil",          admin:true,  senior:true,  lawyer:false, assistant:false },
+  { label:"Gelir/Gider gör",   admin:true,  senior:true,  lawyer:true,  assistant:false },
+  { label:"Gelir/Gider ekle",  admin:true,  senior:true,  lawyer:false, assistant:false },
+  { label:"Avukat ekle/sil",   admin:true,  senior:false, lawyer:false, assistant:false },
+  { label:"Kullanıcı yönetimi",admin:true,  senior:false, lawyer:false, assistant:false },
+];
+
 const LawyerForm = ({ initial, usedColors, onSave, onClose }) => {
   const nc=LAWYER_COLORS.find(c=>!usedColors.includes(c))||LAWYER_COLORS[0];
-  const [form,setForm]=useState(initial||{name:"",title:"Avukat",barNo:"",phone:"",email:"",color:nc,photo:"",notes:""});
+  const [form,setForm]=useState(initial||{name:"",title:"Avukat",barNo:"",phone:"",email:"",color:nc,photo:"",notes:"",systemRole:"lawyer",tempPassword:""});
+  const [creating, setCreating] = useState(false);
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const hp=(e)=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>set("photo",ev.target.result);r.readAsDataURL(f);};
+
+  const selectedRole = ROLE_OPTIONS.find(r=>r.value===form.systemRole) || ROLE_OPTIONS[2];
+
   return (
-    <Modal title={initial?.id?"Avukatı Düzenle":"Yeni Avukat Ekle"} onClose={onClose}>
-      <div style={{display:"flex",alignItems:"flex-start",gap:"1rem",marginBottom:"1.1rem"}}>
-        <div style={{width:60,height:60,borderRadius:"50%",background:"#0d1420",border:`3px solid ${form.color}`,overflow:"hidden",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
-          {form.photo?<img src={form.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<Icon name="user" size={22}/>}
+    <Modal title={initial?.id?"Avukatı Düzenle":"Yeni Avukat Ekle"} onClose={onClose} wide>
+
+      {/* Profil fotoğrafı */}
+      <div style={{display:"flex",alignItems:"flex-start",gap:"1rem",marginBottom:"1rem"}}>
+        <div style={{width:64,height:64,borderRadius:"50%",background:"#0d1420",border:`3px solid ${form.color}`,overflow:"hidden",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+          {form.photo?<img src={form.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<Icon name="user" size={24}/>}
         </div>
         <div style={{flex:1}}>
           <p style={{margin:"0 0 5px",fontSize:11,color:"#9ca3af",letterSpacing:"0.06em",textTransform:"uppercase"}}>Profil Fotoğrafı</p>
@@ -189,18 +212,80 @@ const LawyerForm = ({ initial, usedColors, onSave, onClose }) => {
           </div>
         </div>
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 1rem"}}>
-        <div style={{gridColumn:"1/-1"}}><Input label="Ad Soyad *" value={form.name} onChange={e=>set("name",e.target.value)}/></div>
-        <Sel label="Ünvan" value={form.title} onChange={e=>set("title",e.target.value)}>
-          {["Avukat","Kıdemli Avukat","Ortak","Stajyer Avukat"].map(t=><option key={t}>{t}</option>)}
-        </Sel>
-        <Input label="Baro Sicil No" value={form.barNo} onChange={e=>set("barNo",e.target.value)}/>
-        <Input label="Telefon" value={form.phone} onChange={e=>set("phone",e.target.value)}/>
-        <Input label="E-posta" value={form.email} onChange={e=>set("email",e.target.value)}/>
-      </div>
+
+      {/* Kişisel bilgiler */}
+      <SBox title="👤 Kişisel Bilgiler" color="#60a5fa">
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 1rem"}}>
+          <div style={{gridColumn:"1/-1"}}><Input label="Ad Soyad *" value={form.name} onChange={e=>set("name",e.target.value)}/></div>
+          <Sel label="Ünvan" value={form.title} onChange={e=>set("title",e.target.value)}>
+            {["Avukat","Kıdemli Avukat","Ortak","Stajyer Avukat"].map(t=><option key={t}>{t}</option>)}
+          </Sel>
+          <Input label="Baro Sicil No" value={form.barNo} onChange={e=>set("barNo",e.target.value)}/>
+          <Input label="Telefon" value={form.phone} onChange={e=>set("phone",e.target.value)}/>
+          <Input label="E-posta" type="email" value={form.email} onChange={e=>set("email",e.target.value)}/>
+        </div>
+      </SBox>
+
+      {/* Sistem girişi — sadece yeni kayıtta */}
+      {!initial?.id && (
+        <SBox title="🔐 Sistem Girişi" color="#e2c97e">
+          <p style={{fontSize:12,color:"#6b7280",marginBottom:"0.75rem",marginTop:0}}>
+            Bu bilgilerle avukat sisteme giriş yapacak. E-posta yukarıdakiyle aynı olabilir.
+          </p>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 1rem"}}>
+            <Input label="Giriş E-postası *" type="email" value={form.email} onChange={e=>set("email",e.target.value)} placeholder="avukat@buro.com"/>
+            <Input label="Geçici Şifre *" type="text" value={form.tempPassword} onChange={e=>set("tempPassword",e.target.value)} placeholder="En az 6 karakter"/>
+          </div>
+          <div style={{background:"#0a1628",borderRadius:8,padding:"0.6rem 0.85rem",fontSize:11,color:"#4b5563"}}>
+            💡 Bu bilgileri avukata iletin. İlk girişten sonra şifresini değiştirebilir.
+          </div>
+        </SBox>
+      )}
+
+      {/* Yetki seviyesi */}
+      <SBox title="🛡 Yetki Seviyesi" color="#a78bfa">
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.5rem",marginBottom:"1rem"}}>
+          {ROLE_OPTIONS.map(r=>(
+            <div key={r.value} onClick={()=>set("systemRole",r.value)}
+              style={{background:form.systemRole===r.value?"#1e2d45":"#070b14",border:`2px solid ${form.systemRole===r.value?"#a78bfa":"#1e2d45"}`,borderRadius:10,padding:"0.75rem 1rem",cursor:"pointer",transition:"all 0.15s"}}>
+              <div style={{fontWeight:700,fontSize:13,color:form.systemRole===r.value?"#e5e7eb":"#6b7280",marginBottom:3}}>{r.label}</div>
+              <div style={{fontSize:11,color:"#4b5563"}}>{r.desc}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Yetki tablosu */}
+        <div style={{background:"#070b14",borderRadius:8,overflow:"hidden"}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr repeat(4,40px)",padding:"0.4rem 0.75rem",background:"#1e2d45",gap:4}}>
+            <div style={{fontSize:10,color:"#9ca3af"}}>YETKİ</div>
+            {ROLE_OPTIONS.map(r=><div key={r.value} style={{fontSize:9,color:form.systemRole===r.value?"#e2c97e":"#4b5563",textAlign:"center",fontWeight:form.systemRole===r.value?800:400}}>{r.label.split(" ")[0]}</div>)}
+          </div>
+          {PERM_TABLE.map((p,i)=>(
+            <div key={p.label} style={{display:"grid",gridTemplateColumns:"1fr repeat(4,40px)",padding:"0.35rem 0.75rem",gap:4,background:i%2===0?"transparent":"#0a1628",borderTop:"1px solid #1e2d45"}}>
+              <div style={{fontSize:11,color:"#9ca3af"}}>{p.label}</div>
+              {["admin","senior","lawyer","assistant"].map(role=>(
+                <div key={role} style={{textAlign:"center",fontSize:13}}>
+                  {p[role]
+                    ? <span style={{color:"#10b981"}}>✓</span>
+                    : <span style={{color:"#374151"}}>✗</span>
+                  }
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </SBox>
+
       <div style={{display:"flex",gap:"0.75rem",justifyContent:"flex-end",marginTop:"0.5rem"}}>
         <Btn variant="ghost" onClick={onClose}>İptal</Btn>
-        <Btn onClick={()=>{if(!form.name)return;onSave({...form,id:form.id||Date.now()});}}>Kaydet</Btn>
+        <Btn onClick={()=>{
+          if(!form.name)return;
+          if(!initial?.id && !form.email)return;
+          if(!initial?.id && !form.tempPassword)return;
+          onSave({...form,id:form.id||undefined});
+        }}>
+          {creating?"⏳ Oluşturuluyor...":"Kaydet"}
+        </Btn>
       </div>
     </Modal>
   );
@@ -1588,9 +1673,47 @@ function MainPanel({ session, profile }) {
         <LawyerForm initial={modal.data} usedColors={lawyers.map(l=>l.color)}
           onSave={async l=>{
             const payload={name:l.name,title:l.title,bar_no:l.barNo,phone:l.phone,email:l.email,color:l.color,photo:l.photo,notes:l.notes};
-            if(modal.type==="editLawyer"){const r=await updateRow("lawyers",l.id,payload);if(r)setLawyers(p=>p.map(x=>x.id===l.id?{...r,barNo:r.bar_no}:x));}
-            else{const r=await insertRow("lawyers",payload);if(r)setLawyers(p=>[{...r,barNo:r.bar_no},...p]);}
-            setModal(null);showToast("Avukat kaydedildi.");
+
+            if(modal.type==="editLawyer"){
+              // Sadece profil güncelle
+              const r=await updateRow("lawyers",l.id,payload);
+              if(r) setLawyers(p=>p.map(x=>x.id===l.id?{...r,barNo:r.bar_no,systemRole:l.systemRole}:x));
+              // Rol değiştiyse profil tablosunu güncelle
+              if(l.systemRole && l.authId) {
+                await supabase.from("profiles").update({role:l.systemRole}).eq("id",l.authId);
+              }
+              setModal(null); showToast("Avukat güncellendi.");
+            } else {
+              // 1. Supabase Auth'ta kullanıcı oluştur
+              const { data: authData, error: authErr } = await supabase.auth.signUp({
+                email: l.email,
+                password: l.tempPassword,
+                options: { data: { full_name: l.name } }
+              });
+
+              if(authErr && !authErr.message.includes("already registered")) {
+                showToast("Hata: " + authErr.message);
+                return;
+              }
+
+              // 2. Lawyers tablosuna ekle
+              const r = await insertRow("lawyers", payload);
+              if(r) setLawyers(p=>[{...r,barNo:r.bar_no},...p]);
+
+              // 3. Profil tablosunda rol ata (1-2 sn bekle)
+              setTimeout(async()=>{
+                const {data: profile} = await supabase.from("profiles").select("id").eq("email",l.email).single();
+                if(profile) {
+                  await supabase.from("profiles").update({
+                    role: l.systemRole || "lawyer",
+                    full_name: l.name,
+                  }).eq("id", profile.id);
+                }
+              }, 2000);
+
+              setModal(null);
+              showToast(`✅ ${l.name} oluşturuldu. Giriş: ${l.email} / ${l.tempPassword}`);
+            }
           }}
           onClose={()=>setModal(null)}/>
       )}
