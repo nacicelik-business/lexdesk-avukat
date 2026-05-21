@@ -178,14 +178,19 @@ const ROLE_OPTIONS = [
 ];
 
 const PERM_KEYS = [
-  { key:"viewCases",    label:"Dava görüntüle" },
-  { key:"editCases",    label:"Dava ekle/düzenle" },
-  { key:"deleteCases",  label:"Dava sil" },
-  { key:"viewFinance",  label:"Gelir/Gider gör" },
-  { key:"addFinance",   label:"Gelir/Gider ekle" },
-  { key:"addLawyer",    label:"Avukat ekle/sil" },
-  { key:"manageUsers",  label:"Kullanıcı yönetimi" },
+  "viewCases","editCases","deleteCases","viewFinance",
+  "addFinance","addLawyer","deleteLawyer","manageUsers"
 ];
+const PERM_LABELS = {
+  viewCases:    "Dava görüntüle",
+  editCases:    "Dava ekle/düzenle",
+  deleteCases:  "Dava sil",
+  viewFinance:  "Gelir/Gider gör",
+  addFinance:   "Gelir/Gider ekle",
+  addLawyer:    "Avukat ekle",
+  deleteLawyer: "Avukat sil",
+  manageUsers:  "Kullanıcı yönetimi",
+};
 
 const DEFAULT_PERMS = {
   admin:     {viewCases:true, editCases:true, deleteCases:true, viewFinance:true, addFinance:true, addLawyer:true, deleteLawyer:true, manageUsers:true},
