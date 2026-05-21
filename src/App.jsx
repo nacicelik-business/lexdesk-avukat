@@ -1226,26 +1226,7 @@ export default function AvukatApp() {
 
 // ─── ANA PANEL (auth sonrası) ──────────────────────────────────────
 function MainPanel({ session, profile }) {
-  // ── YETKİ SİSTEMİ ─────────────────────────────────────────────
-  const role = profile.role || 'assistant';
-  const isAdmin = role === "admin";
-  const isSenior = role === "senior" || isAdmin;
-  const isLawyer = role === "lawyer" || isSenior;
-
-  // Veritabanından gelen yetkiler — yoksa varsayılan
-  const myPerms = allPerms?.[role] || {};
-  const can = {
-    viewCases:      myPerms.viewCases      ?? true,
-    editCases:      myPerms.editCases      ?? isLawyer,
-    deleteCases:    myPerms.deleteCases    ?? isSenior,
-    viewFinance:    myPerms.viewFinance    ?? isLawyer,
-    addFinance:     myPerms.addFinance     ?? isSenior,
-    viewAvukatlar:  true,
-    addLawyer:      myPerms.addLawyer      ?? isAdmin,
-    deleteLawyer:   myPerms.deleteLawyer   ?? isAdmin,
-    manageUsers:    myPerms.manageUsers    ?? isAdmin,
-    deleteNeedsApproval: role === "lawyer",
-  };
+  // ── STATE (önce tanımla) ───────────────────────────────────────
   const [tab,setTab]=useState("dashboard");
   const [cases,setCases]=useState([]);
   const [expenses,setExpenses]=useState([]);
@@ -1259,7 +1240,27 @@ function MainPanel({ session, profile }) {
   const [fClient,setFClient]=useState("Tümü");
   const [ready,setReady]=useState(false);
   const [toast,setToast]=useState(null);
-  const [allPerms,setAllPerms]=useState(null); // veritabanından gelen yetkiler
+  const [allPerms,setAllPerms]=useState(null);
+
+  // ── YETKİ SİSTEMİ ─────────────────────────────────────────────
+  const role = profile.role || 'assistant';
+  const isAdmin = role === "admin";
+  const isSenior = role === "senior" || isAdmin;
+  const isLawyer = role === "lawyer" || isSenior;
+
+  const myPerms = allPerms?.[role] || DEFAULT_PERMS[role] || {};
+  const can = {
+    viewCases:      myPerms.viewCases      ?? true,
+    editCases:      myPerms.editCases      ?? isLawyer,
+    deleteCases:    myPerms.deleteCases    ?? isSenior,
+    viewFinance:    myPerms.viewFinance    ?? isLawyer,
+    addFinance:     myPerms.addFinance     ?? isSenior,
+    viewAvukatlar:  true,
+    addLawyer:      myPerms.addLawyer      ?? isAdmin,
+    deleteLawyer:   myPerms.deleteLawyer   ?? isAdmin,
+    manageUsers:    myPerms.manageUsers    ?? isAdmin,
+    deleteNeedsApproval: role === "lawyer",
+  };
   const firmInfo={name:"Avukatlık Bürosu",address:"",tax:""};
 
   // ── Supabase'den veri yükle ──────────────────────────────────────
