@@ -71,7 +71,24 @@ export async function fetchDocuments(caseId) {
   return data
 }
 
-export async function extractTextFromFile(file) {
+export async function fetchPaymentSchedule(caseId) {
+  const { data, error } = await supabase
+    .from('payment_schedule')
+    .select('*')
+    .eq('case_id', caseId)
+    .order('due_date', { ascending: true })
+  if (error) { console.error(error); return [] }
+  return data
+}
+
+export async function fetchAllPaymentSchedules() {
+  const { data, error } = await supabase
+    .from('payment_schedule')
+    .select('*')
+    .order('due_date', { ascending: true })
+  if (error) { console.error(error); return [] }
+  return data
+}
   return new Promise((resolve) => {
     const reader = new FileReader()
     if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
@@ -83,4 +100,3 @@ export async function extractTextFromFile(file) {
     }
   })
 }
-
