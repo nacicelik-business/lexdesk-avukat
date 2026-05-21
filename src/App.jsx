@@ -1303,17 +1303,6 @@ function MainPanel({ session, profile }) {
     setReady(true);
   })();},[]);
 
-  const showToast=(m)=>{setToast(m);setTimeout(()=>setToast(null),2800);};
-  const getLawyer=(id)=>lawyers.find(l=>String(l.id)===String(id));
-  const getCaseTitle=(id)=>cases.find(c=>String(c.id)===String(id))?.title||"—";
-
-  const addAutoTax=async(r)=>{
-    const toAdd=[];
-    if(r.kdv>0) toAdd.push({category:"Vergi & Stopaj",sub_category:"KDV Ödemesi",amount:r.kdv,date:r.date,note:`SMM ${r.receipt_no||""} KDV`,case_id:r.case_id||null,auto_generated:true});
-    if(r.stopaj>0) toAdd.push({category:"Vergi & Stopaj",sub_category:"Stopaj Kesintisi",amount:r.stopaj,date:r.date,note:`SMM ${r.receipt_no||""} Stopaj`,case_id:r.case_id||null,auto_generated:true});
-    for(const t of toAdd){const row=await insertRow("expenses",t);if(row)setExpenses(p=>[...p,row]);}
-  };
-
   const clients=[...new Set(cases.map(c=>c.client).filter(Boolean))].sort();
   const activeCases=cases.filter(c=>c.stage!=="Kapandı");
   const totalExpected=cases.reduce((s,c)=>s+(+c.expectedFee||0),0);
@@ -1363,6 +1352,23 @@ function MainPanel({ session, profile }) {
     {id:"lawyers",  label:"Avukatlar",  icon:"lawyers",    show: can.viewAvukatlar},
   ];
   const tabs = allTabs.filter(t => t.show);
+
+  const showToast = (m) => { setToast(m); setTimeout(()=>setToast(null), 2800); };
+  const getLawyer = (id) => lawyers.find(l=>String(l.id)===String(id));
+  const getCaseTitle = (id) => cases.find(c=>String(c.id)===String(id))?.title||"—";
+
+  const deleteCase = async (id) => {
+    await deleteRow("cases", id);
+    setCases(p=>p.filter(x=>x.id!==id));
+    showToast("Dava silindi.");
+  };
+
+  const addAutoTax = async (r) => {
+    const toAdd=[];
+    if(r.kdv>0) toAdd.push({category:"Vergi & Stopaj",sub_category:"KDV Ödemesi",amount:r.kdv,date:r.date,note:`SMM ${r.receipt_no||""} KDV`,case_id:r.case_id||null,auto_generated:true});
+    if(r.stopaj>0) toAdd.push({category:"Vergi & Stopaj",sub_category:"Stopaj Kesintisi",amount:r.stopaj,date:r.date,note:`SMM ${r.receipt_no||""} Stopaj`,case_id:r.case_id||null,auto_generated:true});
+    for(const t of toAdd){const row=await insertRow("expenses",t);if(row)setExpenses(p=>[...p,row]);}
+  };
 
   if(!ready) return <div style={{...S.app,alignItems:"center",justifyContent:"center"}}><div style={{color:"#e2c97e"}}>Yükleniyor...</div></div>;
 
