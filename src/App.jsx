@@ -307,15 +307,15 @@ const LawyerForm = ({ initial, usedColors, onSave, onClose }) => {
               </tr>
             </thead>
             <tbody>
-              {PERM_KEYS.map((p,i)=>(
-                <tr key={p.key} style={{background:i%2===0?"transparent":"#0a1628",borderBottom:"1px solid #1e2d45"}}>
-                  <td style={{padding:"0.5rem 0.75rem",color:"#9ca3af"}}>{p.label}</td>
+              {PERM_KEYS.map((key,i)=>(
+                <tr key={key} style={{background:i%2===0?"transparent":"#0a1628",borderBottom:"1px solid #1e2d45"}}>
+                  <td style={{padding:"0.5rem 0.75rem",color:"#9ca3af"}}>{PERM_LABELS[key]}</td>
                   {ROLE_OPTIONS.map(r=>{
-                    const locked=r.value==="admin"&&(p.key==="viewCases"||p.key==="manageUsers");
-                    const val=perms[r.value]?.[p.key]??false;
+                    const locked=r.value==="admin"&&(key==="viewCases"||key==="manageUsers");
+                    const val=perms[r.value]?.[key]??DEFAULT_PERMS[r.value]?.[key]??false;
                     return (
                       <td key={r.value} style={{textAlign:"center",padding:"0.5rem"}}>
-                        <button onClick={()=>!locked&&togglePerm(r.value,p.key)}
+                        <button onClick={()=>!locked&&togglePerm(r.value,key)}
                           style={{background:"none",border:"none",cursor:locked?"default":"pointer",fontSize:18,opacity:locked?0.4:1,lineHeight:1}}
                           title={locked?"Değiştirilemez":"Tıkla"}
                         >
