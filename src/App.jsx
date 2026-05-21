@@ -1244,6 +1244,7 @@ function MainPanel({ session, profile }) {
   const [fClient,setFClient]=useState("Tümü");
   const [ready,setReady]=useState(false);
   const [toast,setToast]=useState(null);
+  const [allPayments,setAllPayments]=useState([]);
   const [allPerms,setAllPerms]=useState(null);
 
   // ── YETKİ SİSTEMİ ─────────────────────────────────────────────
@@ -1305,6 +1306,7 @@ function MainPanel({ session, profile }) {
       p.data.forEach(r=>{ pm[r.role] = r.perms; });
       setAllPerms(pm);
     }
+    fetchAllPaymentSchedules().then(setAllPayments);
     setReady(true);
   })();},[]);
 
@@ -1318,10 +1320,6 @@ function MainPanel({ session, profile }) {
   const upcoming=cases.filter(c=>c.nextDate&&new Date(c.nextDate)>=new Date()).sort((a,b)=>new Date(a.nextDate)-new Date(b.nextDate)).slice(0,5);
   const smmInc=incomes.filter(i=>i.type==="SMM");
   const othInc=incomes.filter(i=>i.type!=="SMM");
-
-  // Ödeme takvimi özeti — tüm davalar
-  const [allPayments, setAllPayments] = useState([]);
-  useEffect(()=>{ fetchAllPaymentSchedules().then(setAllPayments); },[]);
   const totalScheduled = allPayments.reduce((s,p)=>s+(+p.amount||0),0);
   const totalPaidScheduled = allPayments.filter(p=>p.paid).reduce((s,p)=>s+(+p.paid_amount||+p.amount||0),0);
   const overduePayments = allPayments.filter(p=>!p.paid&&new Date(p.due_date)<new Date());
@@ -1580,4 +1578,4 @@ function MainPanel({ session, profile }) {
                         </div>
                       </div>
                       <div style={{display:"flex",flexDirection:"column",gap:4}}>
-                        {can.editCases && <Btn sma
+                        {can.editCases && <Btn small variant="ai" onClick={()=>setModal({type:"aiDoc",data:c})}><I
