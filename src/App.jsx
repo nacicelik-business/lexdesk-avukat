@@ -1578,4 +1578,952 @@ function MainPanel({ session, profile }) {
                         </div>
                       </div>
                       <div style={{display:"flex",flexDirection:"column",gap:4}}>
-                        {can.editCases && <Btn small variant="ai" onClick={()=>setModal({type:"aiDoc",data:c})}><I
+                        {can.editCases && <Btn small variant="ai" onClick={()=>setModal({type:"aiDoc",data:c})}><Icon name="doc" size={12}/> Dilekçe</Btn>}
+                        <Btn small variant="ai" onClick={()=>setModal({type:"aiAnalyze",data:c})}><Icon name="search" size={12}/> AI Yorum</Btn>
+                        <Btn small variant="ghost" onClick={()=>setModal({type:"documents",data:c})} style={{color:"#60a5fa",borderColor:"#1e3a5f"}}>📁 Belgeler</Btn>
+                        <Btn small variant="ghost" onClick={()=>setModal({type:"paymentSchedule",data:c})} style={{color:"#e2c97e",borderColor:"#2d4163"}}>💰 Tahsilat</Btn>
+                        {c.client&&<Btn small variant="ghost" onClick={()=>setModal({type:"clientReport",client:c.client})}><Icon name="report" size={12}/> Rapor</Btn>}
+                      </div>
+                      <div style={{display:"flex",gap:4}}>
+                        {can.editCases && (
+                          <button onClick={()=>setModal({type:"editCase",data:c})}
+                            style={{background:"#1e2d45",border:"none",color:"#e2c97e",borderRadius:7,width:30,height:30,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}} title="Düzenle">
+                            <Icon name="edit" size={12}/>
+                          </button>
+                        )}
+                        {can.deleteCases && (
+                          <button onClick={()=>{
+                            if(confirm("Bu davayı silmek istediğinizden emin misiniz?")) {
+                              deleteCase(c.id);
+                            }
+                          }} style={{background:"#1e2d45",border:"none",color:"#f87171",borderRadius:7,width:30,height:30,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}} title="Sil">
+                            <Icon name="trash" size={12}/>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* ── INCOME ── */}
+          {tab==="income"&&(
+            <div style={{display:"flex",flexDirection:"column",gap:"1.25rem"}}>
+              <div style={{display:"flex",gap:"0.75rem",flexWrap:"wrap"}}>
+                {[{l:"Beklenen",v:fmt(totalExpected),c:"#e2c97e"},{l:"SMM Tahsilat",v:fmt(smmInc.reduce((s,i)=>s+(+i.net||+i.amount||0),0)),c:"#10b981"},{l:"Diğer Gelir",v:fmt(othInc.reduce((s,i)=>s+(+i.amount||0),0)),c:"#60a5fa"},{l:"Kalan Alacak",v:fmt(totalExpected-totalCollected),c:"#f59e0b"}].map(s=>(
+                  <div key={s.l} style={S.sc}><div style={{fontSize:10,color:"#6b7280",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:5}}>{s.l}</div><div style={{fontSize:17,fontWeight:800,color:s.c}}>{s.v}</div></div>
+                ))}
+              </div>
+              {smmInc.length>0&&(
+                <div style={S.card}>
+                  <h3 style={{margin:"0 0 1rem",color:"#e2c97e",fontSize:12,fontWeight:700,textTransform:"uppercase"}}>📄 Serbest Meslek Makbuzları</h3>
+                  <table style={{width:"100%",borderCollapse:"collapse"}}>
+                    <thead><tr style={{borderBottom:"1px solid #1e2d45"}}>{["Tarih","Makbuz No","Müvekkil","Dava","Net Tutar",""].map(h=><th key={h} style={{textAlign:"left",padding:"0.4rem 0.5rem",fontSize:10,color:"#6b7280",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+                    <tbody>{[...smmInc].reverse().map(i=>(
+                      <tr key={i.id} style={{borderBottom:"1px solid #0f1e33"}}>
+                        <td style={{padding:"0.5rem",fontSize:12,color:"#9ca3af"}}>{fmtDate(i.date)}</td>
+                        <td style={{padding:"0.5rem",fontSize:12,color:"#e2c97e",fontWeight:700}}>{i.receiptNo||"—"}</td>
+                        <td style={{padding:"0.5rem",fontSize:12,color:"#e5e7eb"}}>{i.clientName}</td>
+                        <td style={{padding:"0.5rem",fontSize:11,color:"#6b7280"}}>{getCaseTitle(i.caseId)}</td>
+                        <td style={{padding:"0.5rem",fontSize:12,fontWeight:700,color:"#10b981"}}>{fmt(i.net||i.amount)}</td>
+                        <td style={{padding:"0.5rem",display:"flex",gap:4}}>
+                          <button onClick={()=>setModal({type:"viewReceipt",data:i})} style={{background:"#1e3a5f",border:"none",color:"#93c5fd",borderRadius:6,padding:"2px 8px",cursor:"pointer",fontSize:11}}>Görüntüle</button>
+                          <button onClick={()=>{if(confirm("Sil?"))setIncomes(p=>p.filter(x=>x.id!==i.id));}} style={{background:"none",border:"none",color:"#4b5563",cursor:"pointer"}}><Icon name="trash" size={12}/></button>
+                        </td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+              )}
+              {othInc.length>0&&(
+                <div style={S.card}>
+                  <h3 style={{margin:"0 0 1rem",color:"#60a5fa",fontSize:12,fontWeight:700,textTransform:"uppercase"}}>💰 Diğer Gelirler</h3>
+                  <table style={{width:"100%",borderCollapse:"collapse"}}>
+                    <thead><tr style={{borderBottom:"1px solid #1e2d45"}}>{["Tarih","Tür","Kaynak","Dava","Not","Tutar",""].map(h=><th key={h} style={{textAlign:"left",padding:"0.4rem 0.5rem",fontSize:10,color:"#6b7280",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+                    <tbody>{[...othInc].reverse().map(i=>(
+                      <tr key={i.id} style={{borderBottom:"1px solid #0f1e33"}}>
+                        <td style={{padding:"0.5rem",fontSize:12,color:"#9ca3af"}}>{fmtDate(i.date)}</td>
+                        <td style={{padding:"0.5rem"}}><Badge color="#60a5fa">{i.type}</Badge></td>
+                        <td style={{padding:"0.5rem",fontSize:12,color:"#e5e7eb"}}>{i.clientName||"—"}</td>
+                        <td style={{padding:"0.5rem",fontSize:11,color:"#6b7280"}}>{i.caseId?getCaseTitle(i.caseId):"—"}</td>
+                        <td style={{padding:"0.5rem",fontSize:11,color:"#6b7280"}}>{i.note}</td>
+                        <td style={{padding:"0.5rem",fontSize:12,fontWeight:700,color:"#10b981"}}>{fmt(i.amount)}</td>
+                        <td style={{padding:"0.5rem"}}><button onClick={()=>{if(confirm("Sil?"))setIncomes(p=>p.filter(x=>x.id!==i.id));}} style={{background:"none",border:"none",color:"#4b5563",cursor:"pointer"}}><Icon name="trash" size={12}/></button></td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+              )}
+              {incomes.length===0&&<div style={{...S.card,textAlign:"center",color:"#4b5563",padding:"3rem"}}>Henüz gelir yok.</div>}
+            </div>
+          )}
+
+          {/* ── EXPENSE ── */}
+          {tab==="expense"&&(
+            <div style={{display:"flex",flexDirection:"column",gap:"1.25rem"}}>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:"0.65rem"}}>
+                {Object.entries(expByCat).map(([cat,total])=>(
+                  <div key={cat} style={{...S.sc,minWidth:0,borderColor:cat==="Vergi & Stopaj"?"#f8717144":"#1e2d45"}}>
+                    <div style={{fontSize:10,color:"#6b7280",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:4}}>{cat}</div>
+                    <div style={{fontSize:14,fontWeight:800,color:cat==="Vergi & Stopaj"?"#fca5a5":"#f87171"}}>{fmt(total)}</div>
+                  </div>
+                ))}
+                <div style={{...S.sc,minWidth:0,borderColor:"#3b1818"}}>
+                  <div style={{fontSize:10,color:"#6b7280",textTransform:"uppercase",marginBottom:4}}>Toplam</div>
+                  <div style={{fontSize:14,fontWeight:800,color:"#f87171"}}>{fmt(totalExpenses)}</div>
+                </div>
+              </div>
+              <div style={S.card}>
+                <table style={{width:"100%",borderCollapse:"collapse"}}>
+                  <thead><tr style={{borderBottom:"1px solid #1e2d45"}}>{["Tarih","Kategori","Alt Kategori","Dava","Not","Tutar",""].map(h=><th key={h} style={{textAlign:"left",padding:"0.4rem 0.5rem",fontSize:10,color:"#6b7280",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+                  <tbody>
+                    {expenses.length===0&&<tr><td colSpan={7} style={{padding:"2rem",textAlign:"center",color:"#4b5563"}}>Henüz gider yok.</td></tr>}
+                    {[...expenses].reverse().map(e=>(
+                      <tr key={e.id} style={{borderBottom:"1px solid #0f1e33",background:e.autoGenerated?"rgba(16,185,129,0.04)":"transparent"}}>
+                        <td style={{padding:"0.5rem",fontSize:12,color:"#9ca3af"}}>{fmtDate(e.date)}</td>
+                        <td style={{padding:"0.5rem"}}><Badge color={e.category==="Vergi & Stopaj"?"#fca5a5":"#a78bfa"}>{e.category}</Badge></td>
+                        <td style={{padding:"0.5rem",fontSize:11,color:"#9ca3af"}}>{e.subCategory}</td>
+                        <td style={{padding:"0.5rem",fontSize:11,color:"#6b7280"}}>{e.caseId?getCaseTitle(e.caseId):"—"}</td>
+                        <td style={{padding:"0.5rem",fontSize:11,color:"#6b7280"}}>{e.autoGenerated&&<span style={{color:"#4b5563",fontSize:9}}>🤖 </span>}{e.note}</td>
+                        <td style={{padding:"0.5rem",fontSize:12,fontWeight:700,color:"#f87171"}}>{fmt(e.amount)}</td>
+                        <td style={{padding:"0.5rem"}}><button onClick={()=>{if(confirm("Sil?"))setExpenses(p=>p.filter(x=>x.id!==e.id));}} style={{background:"none",border:"none",color:"#4b5563",cursor:"pointer"}}><Icon name="trash" size={12}/></button></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ── LAWYERS ── */}
+          {tab==="lawyers"&&(
+            <div style={{display:"flex",flexDirection:"column",gap:"1rem"}}>
+              {lawyers.length===0&&<div style={{...S.card,textAlign:"center",padding:"3rem",color:"#4b5563"}}><div style={{marginBottom:12}}><Icon name="lawyers" size={40}/></div>Henüz avukat eklenmedi.</div>}
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:"1rem"}}>
+                {lawyers.map(l=>{
+                  const lc=cases.filter(c=>String(c.ownerLawyerId)===String(l.id)||String(c.handlerLawyerId)===String(l.id));
+                  const la=lc.filter(c=>c.stage!=="Kapandı").length;
+                  const lh=lc.reduce((s,c)=>s+(+c.workHours||0),0);
+                  const li=incomes.filter(i=>lc.some(c=>String(c.id)===String(i.caseId))).reduce((s,i)=>s+(+i.amount||0),0);
+                  return (
+                    <div key={l.id} style={{background:"#0d1420",border:`1px solid ${l.color}33`,borderRadius:14,padding:"1.25rem",position:"relative"}}>
+                      <div style={{position:"absolute",left:0,top:16,bottom:16,width:3,background:l.color,borderRadius:"0 2px 2px 0"}}/>
+                      <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:"0.9rem"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:10}}>
+                          <Av lawyer={l} size={46}/>
+                          <div>
+                            <div style={{fontWeight:700,color:"#e5e7eb",fontSize:14}}>{l.name}</div>
+                            <div style={{fontSize:12,color:l.color,marginTop:2}}>{l.title}</div>
+                            {l.barNo&&<div style={{fontSize:11,color:"#4b5563",marginTop:1}}>Sicil: {l.barNo}</div>}
+                          </div>
+                        </div>
+                        <div style={{display:"flex",gap:5}}>
+                          {can.addLawyer && <button onClick={()=>setModal({type:"editLawyer",data:l})} style={{background:"#1e2d45",border:"none",color:"#e2c97e",borderRadius:7,width:28,height:28,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}} title="Düzenle"><Icon name="edit" size={12}/></button>}
+                          {can.deleteLawyer && <button onClick={async()=>{if(confirm(`${l.name} silinsin mi?`)){await deleteRow("lawyers",l.id);setLawyers(p=>p.filter(x=>x.id!==l.id));showToast("Avukat silindi.");}}} style={{background:"#1e2d45",border:"none",color:"#f87171",borderRadius:7,width:28,height:28,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}} title="Sil"><Icon name="trash" size={12}/></button>}
+                        </div>
+                      </div>
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"0.4rem",marginBottom:"0.75rem"}}>
+                        {[{label:"Aktif",val:la,color:l.color},{label:"İş Saati",val:lh+"s",color:"#a78bfa"},{label:"Tahsilat",val:fmt(li).replace("₺","₺"),color:"#10b981"}].map(s=>(
+                          <div key={s.label} style={{background:"#070b14",borderRadius:7,padding:"0.45rem",textAlign:"center"}}>
+                            <div style={{fontSize:9,color:"#6b7280",textTransform:"uppercase"}}>{s.label}</div>
+                            <div style={{fontSize:13,fontWeight:800,color:s.color}}>{s.val}</div>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                        {l.phone&&<div style={{fontSize:11,color:"#4b5563"}}>📞 {l.phone}</div>}
+                        <Btn small variant="ghost" onClick={()=>{setTab("cases");setFLawyer(String(l.id));setFRole("Tümü");}}><Icon name="briefcase" size={12}/> Davalarına Git</Btn>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+        </div>
+      </div>
+
+      {/* MODALS */}
+      {(modal?.type==="addCase"||modal?.type==="editCase")&&(
+        <CaseForm initial={modal.data} lawyers={lawyers}
+          onSave={async (c, contractFile)=>{
+            const payload={title:c.title,type:c.type,stage:c.stage,plaintiff:c.plaintiff,defendant:c.defendant,court:c.court,file_no:c.fileNo,internal_no:c.internalNo,case_value:+c.caseValue||0,side:c.side,importance:+c.importance||5,win_rate:+c.winRate||50,risk_amount:+c.riskAmount||0,client:c.client,work_hours:+c.workHours||0,open_date:c.openDate||null,next_date:c.nextDate||null,expected_fee:+c.expectedFee||0,notes:c.notes,photo:c.photo,owner_lawyer_id:c.ownerLawyerId?+c.ownerLawyerId:null,handler_lawyer_id:c.handlerLawyerId?+c.handlerLawyerId:null};
+            if(modal.type==="editCase"){
+              const r=await updateRow("cases",c.id,payload);
+              if(r)setCases(p=>p.map(x=>x.id===c.id?{...r,fileNo:r.file_no,internalNo:r.internal_no,caseValue:r.case_value,winRate:r.win_rate,riskAmount:r.risk_amount,workHours:r.work_hours,openDate:r.open_date,nextDate:r.next_date,expectedFee:r.expected_fee,ownerLawyerId:r.owner_lawyer_id,handlerLawyerId:r.handler_lawyer_id}:x));
+            } else {
+              const r=await insertRow("cases",payload);
+              if(r){
+                const newCase={...r,fileNo:r.file_no,internalNo:r.internal_no,caseValue:r.case_value,winRate:r.win_rate,riskAmount:r.risk_amount,workHours:r.work_hours,openDate:r.open_date,nextDate:r.next_date,expectedFee:r.expected_fee,ownerLawyerId:r.owner_lawyer_id,handlerLawyerId:r.handler_lawyer_id};
+                setCases(p=>[newCase,...p]);
+                // Sözleşmeyi belgeler klasörüne kaydet
+                if(contractFile){
+                  try {
+                    const result = await uploadDocument(r.id, contractFile);
+                    if(result){
+                      await insertRow("documents",{
+                        case_id:r.id, name:contractFile.name,
+                        file_path:result.path,
+                        file_type:contractFile.type||contractFile.name.split('.').pop(),
+                        file_size:contractFile.size,
+                        uploaded_by:session?.user?.id||null,
+                      });
+                    }
+                  } catch(e){ console.error("Sözleşme kaydedilemedi:",e); }
+                }
+              }
+            }
+            setModal(null);showToast(modal.type==="editCase"?"Dava güncellendi.":"Dava eklendi.");
+          }}
+          onClose={()=>setModal(null)}/>
+      )}
+      {(modal?.type==="addLawyer"||modal?.type==="editLawyer")&&(
+        <LawyerForm initial={modal.data} usedColors={lawyers.map(l=>l.color)}
+          onSave={async l=>{
+            const payload={name:l.name,title:l.title,bar_no:l.barNo,phone:l.phone,email:l.email,color:l.color,photo:l.photo,notes:l.notes};
+
+            if(modal.type==="editLawyer"){
+              // Sadece profil güncelle
+              const r=await updateRow("lawyers",l.id,payload);
+              if(r) setLawyers(p=>p.map(x=>x.id===l.id?{...r,barNo:r.bar_no,systemRole:l.systemRole}:x));
+              // Rol değiştiyse profil tablosunu güncelle
+              if(l.systemRole && l.authId) {
+                await supabase.from("profiles").update({role:l.systemRole}).eq("id",l.authId);
+              }
+              setModal(null); showToast("Avukat güncellendi.");
+            } else {
+              // 1. Supabase Auth'ta kullanıcı oluştur
+              const { data: authData, error: authErr } = await supabase.auth.signUp({
+                email: l.email,
+                password: l.tempPassword,
+                options: { data: { full_name: l.name } }
+              });
+
+              if(authErr && !authErr.message.includes("already registered")) {
+                showToast("Hata: " + authErr.message);
+                return;
+              }
+
+              // 2. Lawyers tablosuna ekle
+              const r = await insertRow("lawyers", payload);
+              if(r) setLawyers(p=>[{...r,barNo:r.bar_no},...p]);
+
+              // 3. Profil tablosunda rol ata (1-2 sn bekle)
+              setTimeout(async()=>{
+                const {data: profile} = await supabase.from("profiles").select("id").eq("email",l.email).single();
+                if(profile) {
+                  await supabase.from("profiles").update({
+                    role: l.systemRole || "lawyer",
+                    full_name: l.name,
+                  }).eq("id", profile.id);
+                }
+              }, 2000);
+
+              setModal(null);
+              showToast(`✅ ${l.name} oluşturuldu. Giriş: ${l.email} / ${l.tempPassword}`);
+            }
+          }}
+          onClose={()=>setModal(null)}/>
+      )}
+      {modal?.type==="smm"&&<ReceiptForm cases={cases} onSave={async r=>{
+        const payload={type:"SMM",receipt_no:r.receiptNo,date:r.date,client_name:r.clientName,client_address:r.clientAddress,items:r.items,subtotal:r.subtotal,kdv:r.kdv,stopaj:r.stopaj,net:r.net,kdv_rate:r.kdvRate,stopaj_rate:r.stopajRate,amount:r.net,case_id:r.caseId?+r.caseId:null};
+        const row=await insertRow("incomes",payload);
+        if(row){setIncomes(p=>[{...row,receiptNo:row.receipt_no,clientName:row.client_name,clientAddress:row.client_address,kdvRate:row.kdv_rate,stopajRate:row.stopaj_rate,caseId:row.case_id},...p]);await addAutoTax(row);}
+        setModal(null);showToast("Makbuz kaydedildi + vergi kalemleri otomatik eklendi.");
+      }} onClose={()=>setModal(null)}/>}
+      {modal?.type==="otherIncome"&&<OtherIncomeForm cases={cases} onSave={async i=>{
+        const payload={type:i.type,date:i.date,client_name:i.clientName,amount:+i.amount,note:i.note,case_id:i.caseId?+i.caseId:null};
+        const row=await insertRow("incomes",payload);
+        if(row)setIncomes(p=>[{...row,clientName:row.client_name,caseId:row.case_id},...p]);
+        setModal(null);showToast("Gelir eklendi.");
+      }} onClose={()=>setModal(null)}/>}
+      {modal?.type==="viewReceipt"&&<ReceiptView r={modal.data} firm={firmInfo} onClose={()=>setModal(null)}/>}
+      {modal?.type==="addExpense"&&<ExpenseForm cases={cases} onSave={async e=>{
+        const payload={category:e.category,sub_category:e.subCategory,amount:+e.amount,date:e.date,note:e.note,case_id:e.caseId?+e.caseId:null};
+        const row=await insertRow("expenses",payload);
+        if(row)setExpenses(p=>[{...row,subCategory:row.sub_category,caseId:row.case_id},...p]);
+        setModal(null);showToast("Gider eklendi.");
+      }} onClose={()=>setModal(null)}/>}
+      {modal?.type==="clientReport"&&<ClientReport client={modal.client} cases={cases} incomes={incomes} onClose={()=>setModal(null)}/>}
+      {modal?.type==="aiDoc"&&<AIAssistant caseData={modal.data} mode="document" onClose={()=>setModal(null)}/>}
+      {modal?.type==="aiAnalyze"&&<AIAssistant caseData={modal.data} mode="analyze" onClose={()=>setModal(null)}/>}
+      {modal?.type==="userManagement"&&<UserManagementModal currentUser={profile} onClose={()=>setModal(null)}/>}
+      {modal?.type==="documents"&&<DocumentsModal caseData={modal.data} userId={session.user.id} onClose={()=>setModal(null)}/>}
+      {modal?.type==="assistant"&&<SmartAssistant cases={cases} incomes={incomes} expenses={expenses} lawyers={lawyers} onClose={()=>setModal(null)}/>}
+      {modal?.type==="paymentSchedule"&&<PaymentScheduleModal caseData={modal.data} onClose={()=>setModal(null)}/>}
+
+      {/* TOAST */}
+      {toast&&<div style={{position:"fixed",bottom:"2rem",right:"2rem",background:"#fff",border:"1px solid #bbf7d0",borderRadius:10,padding:"0.75rem 1.25rem",color:"#15803d",fontSize:13,fontWeight:600,display:"flex",alignItems:"center",gap:8,boxShadow:"0 8px 30px rgba(0,0,0,0.1)",zIndex:2000}}><Icon name="check" size={14}/>{toast}</div>}
+    </div>
+  );
+}
+
+// ─── AKILLI ASISTAN ───────────────────────────────────────────────
+function SmartAssistant({ cases, incomes, expenses, lawyers, onClose }) {
+  const [query, setQuery] = useState("")
+  const [messages, setMessages] = useState([
+    { role:"assistant", text:"Merhaba! Size nasıl yardımcı olabilirim? Dava bilgileri, duruşma tarihleri, müvekkil sorguları veya finansal bilgiler hakkında sorabilirsiniz." }
+  ])
+  const [loading, setLoading] = useState(false)
+  const [listening, setListening] = useState(false)
+  const messagesEndRef = useState(null)
+
+  // Sesli tanıma
+  const startListening = () => {
+    if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+      alert('Tarayıcınız sesli tanımayı desteklemiyor. Chrome kullanın.')
+      return
+    }
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition
+    const recognition = new SR()
+    recognition.lang = 'tr-TR'
+    recognition.interimResults = false
+    recognition.onstart = () => setListening(true)
+    recognition.onend = () => setListening(false)
+    recognition.onresult = (e) => {
+      const transcript = e.results[0][0].transcript
+      setQuery(transcript)
+    }
+    recognition.onerror = () => setListening(false)
+    recognition.start()
+  }
+
+  // Sesli okuma
+  const speak = (text) => {
+    if (!('speechSynthesis' in window)) return
+    window.speechSynthesis.cancel()
+    const utt = new SpeechSynthesisUtterance(text)
+    utt.lang = 'tr-TR'
+    utt.rate = 1.0
+    window.speechSynthesis.speak(utt)
+  }
+
+  // Akıllı veri hazırlama — sadece ilgili veriyi gönder
+  const prepareContext = (q) => {
+    const ql = q.toLowerCase()
+
+    // İsim araması
+    const nameMatch = lawyers.find(l => ql.includes(l.name.toLowerCase().split(' ')[0].toLowerCase()))
+    const clientMatch = [...new Set(cases.map(c=>c.client).filter(Boolean))].find(c => c && ql.includes(c.toLowerCase().split(' ')[0]))
+
+    // İlgili davaları filtrele
+    let relevantCases = cases
+    if (nameMatch) {
+      relevantCases = cases.filter(c =>
+        String(c.owner_lawyer_id||c.ownerLawyerId)===String(nameMatch.id) ||
+        String(c.handler_lawyer_id||c.handlerLawyerId)===String(nameMatch.id)
+      )
+    } else if (clientMatch) {
+      relevantCases = cases.filter(c => c.client === clientMatch)
+    } else if (ql.includes('duruşma') || ql.includes('tarih') || ql.includes('ne zaman')) {
+      relevantCases = cases.filter(c => c.next_date || c.nextDate).slice(0, 10)
+    } else if (ql.includes('risk') || ql.includes('tutar') || ql.includes('ücret')) {
+      relevantCases = cases.filter(c => (c.risk_amount||c.riskAmount) > 0).slice(0, 10)
+    } else {
+      relevantCases = cases.slice(0, 15) // max 15 dava
+    }
+
+    // Özet veri hazırla
+    const casesSummary = relevantCases.map(c => ({
+      başlık: c.title,
+      müvekkil: c.client,
+      tür: c.type,
+      aşama: c.stage,
+      mahkeme: c.court,
+      sonrakiDuruşma: c.next_date || c.nextDate || "—",
+      beklenenÜcret: c.expected_fee || c.expectedFee || 0,
+      riskTutarı: c.risk_amount || c.riskAmount || 0,
+      kazanmaİhtimali: (c.win_rate || c.winRate || 50) + "%",
+      davacı: c.plaintiff,
+      davalı: c.defendant,
+    }))
+
+    // Finansal özet (sadece gerekirse)
+    let financialSummary = null
+    if (ql.includes('gelir') || ql.includes('tahsilat') || ql.includes('gider') || ql.includes('kâr')) {
+      financialSummary = {
+        toplamTahsilat: incomes.reduce((s,i)=>s+(+i.amount||0),0),
+        toplamGider: expenses.reduce((s,e)=>s+(+e.amount||0),0),
+        netKar: incomes.reduce((s,i)=>s+(+i.amount||0),0) - expenses.reduce((s,e)=>s+(+e.amount||0),0),
+      }
+    }
+
+    return { casesSummary, financialSummary, toplamDava: cases.length, aktifDava: cases.filter(c=>c.stage!=="Kapandı").length }
+  }
+
+  const sendMessage = async () => {
+    if (!query.trim() || loading) return
+    const userMsg = query.trim()
+    setQuery("")
+    setMessages(p => [...p, { role:"user", text:userMsg }])
+    setLoading(true)
+
+    try {
+      const context = prepareContext(userMsg)
+
+      const systemPrompt = `Sen bir avukatlık bürosu asistanısın. Sana verilen dava verileri üzerinden soruları cevapla.
+Kısa, net ve Türkçe cevap ver. Para tutarlarını Türk Lirası olarak belirt.
+Tarihler için gün.ay.yıl formatını kullan.
+Eğer bilgi yoksa "Bu konuda kayıtlı veri bulunmuyor" de.`
+
+      const userContent = `Dava Verileri:
+${JSON.stringify(context, null, 2)}
+
+Soru: ${userMsg}`
+
+      const res = await fetch('/api/claude', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-5',
+          max_tokens: 400,
+          system: systemPrompt,
+          messages: [{ role:'user', content: userContent }]
+        })
+      })
+      const data = await res.json()
+      const answer = data.content?.filter(b=>b.type==='text').map(b=>b.text).join('') || 'Cevap alınamadı.'
+
+      setMessages(p => [...p, { role:"assistant", text:answer }])
+      speak(answer)
+    } catch(e) {
+      setMessages(p => [...p, { role:"assistant", text:"Hata oluştu: " + e.message }])
+    }
+    setLoading(false)
+  }
+
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(10,14,23,0.92)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:"1rem"}}>
+      <div style={{background:"#111827",border:"1px solid #1e2d45",borderRadius:16,width:"100%",maxWidth:600,height:"80vh",display:"flex",flexDirection:"column",boxShadow:"0 25px 60px rgba(0,0,0,0.7)"}}>
+
+        {/* Header */}
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"1.1rem 1.5rem",borderBottom:"1px solid #1e2d45",flexShrink:0}}>
+          <div>
+            <h3 style={{margin:0,color:"#e2c97e",fontFamily:"'Playfair Display',serif",fontSize:"1rem"}}>🎤 Akıllı Asistan</h3>
+            <p style={{margin:"2px 0 0",fontSize:11,color:"#4b5563"}}>Sesli veya yazarak sorun — dava bilgilerinden cevap bulur</p>
+          </div>
+          <button onClick={()=>{window.speechSynthesis?.cancel();onClose();}} style={{background:"none",border:"none",color:"#6b7280",cursor:"pointer",padding:4}}>✕</button>
+        </div>
+
+        {/* Mesajlar */}
+        <div style={{flex:1,overflowY:"auto",padding:"1rem 1.5rem",display:"flex",flexDirection:"column",gap:"0.75rem"}}>
+          {messages.map((m,i)=>(
+            <div key={i} style={{display:"flex",justifyContent:m.role==="user"?"flex-end":"flex-start"}}>
+              <div style={{
+                maxWidth:"80%",
+                background:m.role==="user"?"linear-gradient(135deg,#1e3a5f,#2d5a8e)":"#0d1420",
+                border:`1px solid ${m.role==="user"?"#2d5a8e":"#1e2d45"}`,
+                borderRadius:m.role==="user"?"12px 12px 2px 12px":"12px 12px 12px 2px",
+                padding:"0.65rem 1rem",
+                fontSize:13,
+                color:m.role==="user"?"#bfdbfe":"#e5e7eb",
+                lineHeight:1.6,
+              }}>
+                {m.text}
+                {m.role==="assistant" && (
+                  <button onClick={()=>speak(m.text)}
+                    style={{background:"none",border:"none",color:"#4b5563",cursor:"pointer",fontSize:14,marginLeft:8,verticalAlign:"middle"}}>
+                    🔊
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+          {loading&&(
+            <div style={{display:"flex",justifyContent:"flex-start"}}>
+              <div style={{background:"#0d1420",border:"1px solid #1e2d45",borderRadius:"12px 12px 12px 2px",padding:"0.65rem 1rem",fontSize:13,color:"#6b7280"}}>
+                ⏳ Yanıt hazırlanıyor...
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Input */}
+        <div style={{padding:"1rem 1.5rem",borderTop:"1px solid #1e2d45",flexShrink:0}}>
+          <div style={{display:"flex",gap:"0.5rem"}}>
+            {/* Mikrofon */}
+            <button onClick={startListening}
+              style={{background:listening?"#7f1d1d":"#1e2d45",border:`1px solid ${listening?"#991b1b":"#2d4163"}`,color:listening?"#fca5a5":"#9ca3af",borderRadius:8,width:42,height:42,cursor:"pointer",fontSize:18,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+              {listening?"⏹":"🎤"}
+            </button>
+            <input
+              value={query}
+              onChange={e=>setQuery(e.target.value)}
+              onKeyDown={e=>e.key==="Enter"&&sendMessage()}
+              placeholder="Soru sorun... (ör: Ahmet Yılmaz'ın duruşması ne zaman?)"
+              style={{flex:1,background:"#0d1420",border:"1px solid #1e2d45",borderRadius:8,color:"#e5e7eb",padding:"0.6rem 0.85rem",fontSize:13,outline:"none"}}
+            />
+            <button onClick={sendMessage} disabled={loading||!query.trim()}
+              style={{background:"linear-gradient(135deg,#b8962e,#e2c97e)",border:"none",color:"#0a0e17",fontWeight:700,borderRadius:8,padding:"0 1rem",cursor:"pointer",flexShrink:0,opacity:!query.trim()?0.5:1}}>
+              Sor
+            </button>
+          </div>
+          <p style={{margin:"6px 0 0",fontSize:11,color:"#374151",textAlign:"center"}}>
+            🎤 Mikrofon → konuş → otomatik yazar · 🔊 ikonuna tıkla → sesli okur
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+function DocumentsModal({ caseData, userId, onClose }) {
+  const [docs, setDocs] = useState([])
+  const [uploading, setUploading] = useState(false)
+  const [aiResult, setAiResult] = useState("")
+  const [aiLoading, setAiLoading] = useState(false)
+  const [selectedDoc, setSelectedDoc] = useState(null)
+
+  useEffect(() => {
+    fetchDocuments(caseData.id).then(setDocs)
+  }, [caseData.id])
+
+  const handleUpload = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    setUploading(true)
+
+    const result = await uploadDocument(caseData.id, file)
+    if (result) {
+      // Önce kaydet
+      const row = await insertRow("documents", {
+        case_id: caseData.id,
+        name: file.name,
+        file_path: result.path,
+        file_type: file.type || file.name.split('.').pop(),
+        file_size: file.size,
+        uploaded_by: userId,
+      })
+      if (row) {
+        setDocs(p => [row, ...p])
+
+        // Arka planda otomatik özetle (bir kez, sonra sakla)
+        summarizeDocument(file, row.id)
+      }
+    }
+    setUploading(false)
+    e.target.value = ""
+  }
+
+  const summarizeDocument = async (file, docId) => {
+    try {
+      const isPDF = file.name.toLowerCase().endsWith('.pdf')
+      let messages = []
+
+      if (isPDF) {
+        const base64 = await new Promise(resolve => {
+          const r = new FileReader()
+          r.onload = e => resolve(e.target.result.split(',')[1])
+          r.readAsDataURL(file)
+        })
+        messages = [{ role:'user', content:[
+          { type:'document', source:{ type:'base64', media_type:'application/pdf', data:base64 }},
+          { type:'text', text:'Bu hukuki belgeyi özetle. Şunları çıkar: taraflar, konu, önemli tarihler, tutarlar, kararlar, riskler. Kısa ve net tut (maks 300 kelime).' }
+        ]}]
+      } else {
+        const text = await new Promise(resolve => {
+          const r = new FileReader()
+          r.onload = e => resolve(e.target.result)
+          r.readAsText(file, 'UTF-8')
+        })
+        messages = [{ role:'user', content:`Şu belgeyi özetle (maks 300 kelime): ${text.substring(0,5000)}` }]
+      }
+
+      const res = await fetch('/api/claude', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ model:'claude-sonnet-4-5', max_tokens:500, messages })
+      })
+      const data = await res.json()
+      const summary = data.content?.filter(b=>b.type==='text').map(b=>b.text).join('') || ''
+
+      if (summary) {
+        await updateRow('documents', docId, { ai_summary: summary })
+        setDocs(p => p.map(d => d.id===docId ? {...d, ai_summary:summary} : d))
+      }
+    } catch(e) { console.error('Özetleme hatası:', e) }
+  }
+
+  const handleDelete = async (doc) => {
+    if (!confirm(`"${doc.name}" silinsin mi?`)) return
+    await deleteDocument(doc.file_path)
+    await deleteRow("documents", doc.id)
+    setDocs(p => p.filter(x => x.id !== doc.id))
+  }
+
+  const handleOpen = async (doc) => {
+    const url = await getDocumentUrl(doc.file_path)
+    if (url) window.open(url, '_blank')
+  }
+
+  const analyzeAllDocs = async () => {
+    if (docs.length === 0) return
+    setAiLoading(true)
+    setAiResult("")
+    try {
+      const docList = docs.map(d => `- ${d.name} (${new Date(d.created_at).toLocaleDateString('tr-TR')})`).join('\n')
+      const res = await fetch('/api/claude', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-5',
+          max_tokens: 1500,
+          system: 'Sen deneyimli bir Türk hukuk danışmanısın. Dava belgelerini ve bilgilerini analiz ederek hukuki yorum ve tavsiye veriyorsun.',
+          messages: [{
+            role: 'user',
+            content: `Aşağıdaki dava için mevcut belgeler ve bilgilere dayanarak hukuki değerlendirme yap:\n\nDava: ${caseData.title}\nTür: ${caseData.type}\nAşama: ${caseData.stage}\nDavacı: ${caseData.plaintiff}\nDavalı: ${caseData.defendant}\nKazanma İhtimali: %${caseData.winRate || 50}\n\nYüklü Belgeler:\n${docList}\n\nLütfen şunları değerlendir:\n1. Davanın mevcut gidişatı\n2. Güçlü ve zayıf yönler\n3. Önerilen strateji\n4. Dikkat edilmesi gereken riskler\n5. Sonraki adımlar`
+          }]
+        })
+      })
+      const data = await res.json()
+      setAiResult(data.content?.filter(b => b.type === 'text').map(b => b.text).join('') || 'Yanıt alınamadı.')
+    } catch { setAiResult('Hata oluştu.') }
+    setAiLoading(false)
+  }
+
+  const formatSize = (bytes) => {
+    if (!bytes) return ''
+    if (bytes < 1024) return bytes + ' B'
+    if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB'
+    return (bytes/(1024*1024)).toFixed(1) + ' MB'
+  }
+
+  const fileIcon = (type) => {
+    if (!type) return '📄'
+    if (type.includes('pdf')) return '📕'
+    if (type.includes('word') || type.includes('doc')) return '📘'
+    if (type.includes('image')) return '🖼️'
+    if (type.includes('sheet') || type.includes('excel') || type.includes('xls')) return '📗'
+    return '📄'
+  }
+
+  return (
+    <Modal title={`📁 Belgeler — ${caseData.title}`} onClose={onClose} wide>
+      {/* Yükleme alanı */}
+      <div style={{background:"#0a1628",border:"2px dashed #1e3a5f",borderRadius:12,padding:"1.25rem",marginBottom:"1rem",textAlign:"center"}}>
+        <div style={{fontSize:28,marginBottom:8}}>📂</div>
+        <p style={{color:"#9ca3af",fontSize:13,marginBottom:"0.75rem"}}>PDF, Word, Excel, görsel — her türlü belge yükleyebilirsiniz</p>
+        <label style={{background:"linear-gradient(135deg,#1e3a5f,#2d5a8e)",border:"1px solid #2d5a8e",color:"#93c5fd",borderRadius:8,padding:"0.55rem 1.2rem",fontSize:13,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:6}}>
+          <Icon name="upload" size={15}/>
+          {uploading ? "⏳ Yükleniyor..." : "Belge Yükle"}
+          <input type="file" accept="application/pdf,.pdf,application/msword,.doc,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx,application/vnd.ms-excel,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.xlsx,image/*,.txt" onChange={handleUpload} style={{display:"none"}} disabled={uploading}/>
+        </label>
+      </div>
+
+      {/* Belgeler listesi */}
+      {docs.length === 0 ? (
+        <div style={{textAlign:"center",color:"#4b5563",padding:"2rem",fontSize:13}}>Henüz belge yüklenmemiş.</div>
+      ) : (
+        <div style={{display:"flex",flexDirection:"column",gap:"0.5rem",marginBottom:"1rem"}}>
+          {docs.map(doc => (
+            <div key={doc.id} style={{display:"flex",alignItems:"center",gap:"0.75rem",background:"#0d1420",border:"1px solid #1e2d45",borderRadius:10,padding:"0.75rem 1rem"}}>
+              <span style={{fontSize:24,flexShrink:0}}>{fileIcon(doc.file_type)}</span>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:13,color:"#e5e7eb",fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{doc.name}</div>
+                <div style={{fontSize:11,color:"#6b7280"}}>{new Date(doc.created_at).toLocaleDateString('tr-TR')} · {formatSize(doc.file_size)}</div>
+              </div>
+              <button onClick={()=>handleOpen(doc)}
+                style={{background:"#1e3a5f",border:"none",color:"#93c5fd",borderRadius:7,padding:"0.35rem 0.75rem",cursor:"pointer",fontSize:12,flexShrink:0}}>
+                Aç
+              </button>
+              <button onClick={()=>handleDelete(doc)}
+                style={{background:"none",border:"none",color:"#4b5563",cursor:"pointer",padding:"0.35rem",flexShrink:0}}>
+                <Icon name="trash" size={14}/>
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* AI Yorum */}
+      <div style={{borderTop:"1px solid #1e2d45",paddingTop:"1rem"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.75rem"}}>
+          <h3 style={{margin:0,color:"#e2c97e",fontSize:13,fontWeight:700}}>🤖 AI Hukuki Değerlendirme</h3>
+          <Btn variant="ai" small onClick={analyzeAllDocs}>
+            {aiLoading ? "⏳ Analiz ediliyor..." : <><Icon name="search" size={13}/> Tüm Belgeleri Değerlendir</>}
+          </Btn>
+        </div>
+        {aiResult && (
+          <div style={{background:"#0a1628",border:"1px solid #1e3a5f",borderRadius:10,padding:"1.25rem",position:"relative"}}>
+            <button onClick={()=>navigator.clipboard.writeText(aiResult)}
+              style={{position:"absolute",top:10,right:10,background:"#1e2d45",border:"none",color:"#9ca3af",borderRadius:6,padding:"3px 8px",cursor:"pointer",fontSize:11}}>
+              Kopyala
+            </button>
+            <pre style={{margin:0,color:"#bfdbfe",fontSize:12,lineHeight:1.7,whiteSpace:"pre-wrap",fontFamily:"monospace",paddingTop:8}}>{aiResult}</pre>
+          </div>
+        )}
+      </div>
+    </Modal>
+  )
+}
+
+// ─── ÖDEME TAKVİMİ MODALI ─────────────────────────────────────────
+function PaymentScheduleModal({ caseData, onClose }) {
+  const [payments, setPayments] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [extracting, setExtracting] = useState(false)
+  const [addMode, setAddMode] = useState(false)
+  const [newPayment, setNewPayment] = useState({ description:"", amount:"", due_date:"" })
+
+  useEffect(() => {
+    fetchPaymentSchedule(caseData.id).then(p => { setPayments(p); setLoading(false); })
+  }, [caseData.id])
+
+  // Toplam hesaplamalar
+  const totalExpected = payments.reduce((s,p) => s + (+p.amount||0), 0)
+  const totalPaid     = payments.reduce((s,p) => s + (p.paid ? +p.paid_amount||+p.amount||0 : 0), 0)
+  const totalPending  = totalExpected - totalPaid
+  const overdue       = payments.filter(p => !p.paid && new Date(p.due_date) < new Date())
+
+  // Ödeme ekle
+  const addPayment = async () => {
+    if (!newPayment.description || !newPayment.amount || !newPayment.due_date) return
+    const row = await insertRow("payment_schedule", {
+      case_id: caseData.id,
+      description: newPayment.description,
+      amount: +newPayment.amount,
+      due_date: newPayment.due_date,
+    })
+    if (row) setPayments(p => [...p, row].sort((a,b) => new Date(a.due_date) - new Date(b.due_date)))
+    setNewPayment({ description:"", amount:"", due_date:"" })
+    setAddMode(false)
+  }
+
+  // Ödendi işaretle
+  const markPaid = async (payment) => {
+    const paidAmount = prompt(`Tahsil edilen tutar (₺)?\nBeklenen: ${fmt(payment.amount)}`, payment.amount)
+    if (paidAmount === null) return
+    const updated = await updateRow("payment_schedule", payment.id, {
+      paid: true,
+      paid_date: new Date().toISOString().slice(0,10),
+      paid_amount: +paidAmount,
+    })
+    if (updated) setPayments(p => p.map(x => x.id===payment.id ? updated : x))
+  }
+
+  // Ödenmedi'ye geri al
+  const markUnpaid = async (payment) => {
+    const updated = await updateRow("payment_schedule", payment.id, {
+      paid: false, paid_date: null, paid_amount: 0
+    })
+    if (updated) setPayments(p => p.map(x => x.id===payment.id ? updated : x))
+  }
+
+  // AI ile belgeden ödeme takvimi çıkar
+  const extractFromDocs = async () => {
+    setExtracting(true)
+    try {
+      const docs = await fetchDocuments(caseData.id)
+      const summaries = docs.filter(d => d.ai_summary).map(d => `Belge: ${d.name}\n${d.ai_summary}`).join('\n\n')
+      if (!summaries) { alert("Önce belgeler klasörüne belge yükleyin ve AI özetlemesini bekleyin."); setExtracting(false); return }
+
+      const res = await fetch('/api/claude', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-5', max_tokens: 1000,
+          system: 'Sen bir hukuk asistanısın. Belge özetlerinden ödeme tarihlerini ve tutarlarını çıkar. Sadece JSON döndür.',
+          messages: [{
+            role: 'user',
+            content: `Aşağıdaki belge özetlerinden ödeme takvimini çıkar. Her ödeme için açıklama, tutar ve tarih bul. Sadece JSON döndür:\n{"payments":[{"description":"açıklama","amount":12000,"due_date":"2024-03-15"}]}\n\nBelgeler:\n${summaries}`
+          }]
+        })
+      })
+      const data = await res.json()
+      const text = data.content?.filter(b=>b.type==='text').map(b=>b.text).join('') || ''
+      const parsed = JSON.parse(text.replace(/```json|```/g,'').trim())
+
+      if (parsed.payments?.length > 0) {
+        for (const p of parsed.payments) {
+          if (!p.due_date || !p.amount) continue
+          const row = await insertRow("payment_schedule", {
+            case_id: caseData.id,
+            description: p.description || "Ödeme",
+            amount: +p.amount,
+            due_date: p.due_date,
+          })
+          if (row) setPayments(prev => [...prev, row].sort((a,b) => new Date(a.due_date) - new Date(b.due_date)))
+        }
+        alert(`${parsed.payments.length} ödeme takvimi oluşturuldu.`)
+      } else {
+        alert("Belgelerden ödeme tarihi bulunamadı. Manuel ekleyin.")
+      }
+    } catch(e) { alert("Hata: " + e.message) }
+    setExtracting(false)
+  }
+
+  // .ics takvim dosyası oluştur
+  const exportToCalendar = (payment) => {
+    const start = payment.due_date.replace(/-/g,'')
+    const ics = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'BEGIN:VEVENT',
+      `DTSTART:${start}`,
+      `DTEND:${start}`,
+      `SUMMARY:💰 ${payment.description} - ${caseData.title}`,
+      `DESCRIPTION:Beklenen tutar: ${fmt(payment.amount)}\\nDava: ${caseData.title}\\nMüvekkil: ${caseData.client||''}`,
+      'BEGIN:VALARM',
+      'TRIGGER:-P1D',
+      'ACTION:DISPLAY',
+      'DESCRIPTION:Ödeme Hatırlatma',
+      'END:VALARM',
+      'END:VEVENT',
+      'END:VCALENDAR'
+    ].join('\r\n')
+
+    const blob = new Blob([ics], { type:'text/calendar' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `odeme_${payment.due_date}.ics`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const statusColor = (p) => {
+    if (p.paid) return "#10b981"
+    if (new Date(p.due_date) < new Date()) return "#f87171"
+    const diff = (new Date(p.due_date) - new Date()) / (1000*60*60*24)
+    if (diff <= 7) return "#f59e0b"
+    return "#60a5fa"
+  }
+
+  return (
+    <Modal title={`💰 Ödeme Takvimi — ${caseData.title}`} onClose={onClose} wide>
+
+      {/* Özet kartlar */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"0.65rem",marginBottom:"1.25rem"}}>
+        {[
+          {l:"Toplam Beklenen", v:fmt(totalExpected), c:"#e2c97e"},
+          {l:"Tahsil Edilen",   v:fmt(totalPaid),     c:"#10b981"},
+          {l:"Kalan Alacak",    v:fmt(totalPending),  c:totalPending>0?"#f87171":"#10b981"},
+        ].map(s=>(
+          <div key={s.l} style={{background:"#0a1628",border:`1px solid ${s.c}33`,borderRadius:10,padding:"0.75rem 1rem",textAlign:"center"}}>
+            <div style={{fontSize:10,color:"#6b7280",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>{s.l}</div>
+            <div style={{fontSize:18,fontWeight:800,color:s.c}}>{s.v}</div>
+          </div>
+        ))}
+      </div>
+
+      {overdue.length > 0 && (
+        <div style={{background:"#7f1d1d22",border:"1px solid #991b1b",borderRadius:8,padding:"0.65rem 1rem",marginBottom:"1rem",fontSize:13,color:"#fca5a5"}}>
+          ⚠️ {overdue.length} adet vadesi geçmiş ödeme var — toplam {fmt(overdue.reduce((s,p)=>s+(+p.amount||0),0))}
+        </div>
+      )}
+
+      {/* Ödeme listesi */}
+      {loading ? (
+        <div style={{textAlign:"center",color:"#6b7280",padding:"2rem"}}>⏳ Yükleniyor...</div>
+      ) : payments.length === 0 ? (
+        <div style={{textAlign:"center",color:"#4b5563",padding:"2rem",fontSize:13}}>
+          Henüz ödeme takvimi yok.<br/>
+          <span style={{fontSize:12}}>AI ile belgeden çıkarın veya manuel ekleyin.</span>
+        </div>
+      ) : (
+        <div style={{display:"flex",flexDirection:"column",gap:"0.5rem",marginBottom:"1rem"}}>
+          {payments.map(p => (
+            <div key={p.id} style={{
+              display:"flex",alignItems:"center",gap:"0.75rem",
+              background: p.paid ? "#064e3b22" : "#0d1420",
+              border:`1px solid ${statusColor(p)}44`,
+              borderLeft:`3px solid ${statusColor(p)}`,
+              borderRadius:"0 10px 10px 0",
+              padding:"0.75rem 1rem",
+              opacity: p.paid ? 0.75 : 1,
+            }}>
+              {/* Durum ikonu */}
+              <div style={{fontSize:20,flexShrink:0}}>
+                {p.paid ? "✅" : new Date(p.due_date) < new Date() ? "🔴" : "💳"}
+              </div>
+
+              {/* Bilgi */}
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{
+                  fontSize:13,fontWeight:600,
+                  color: p.paid ? "#9ca3af" : "#e5e7eb",
+                  textDecoration: p.paid ? "line-through" : "none"
+                }}>
+                  {p.description}
+                </div>
+                <div style={{fontSize:11,color:"#6b7280",marginTop:2}}>
+                  Vade: {new Date(p.due_date).toLocaleDateString('tr-TR')}
+                  {p.paid && p.paid_date && ` · Ödendi: ${new Date(p.paid_date).toLocaleDateString('tr-TR')}`}
+                  {p.paid && p.paid_amount && +p.paid_amount !== +p.amount && ` · Tahsil: ${fmt(p.paid_amount)}`}
+                </div>
+              </div>
+
+              {/* Tutar */}
+              <div style={{textAlign:"right",flexShrink:0}}>
+                <div style={{fontSize:14,fontWeight:800,color:p.paid?"#10b981":statusColor(p)}}>
+                  {fmt(p.paid && p.paid_amount ? p.paid_amount : p.amount)}
+                </div>
+                {p.paid && +p.paid_amount && +p.paid_amount !== +p.amount && (
+                  <div style={{fontSize:10,color:"#6b7280",textDecoration:"line-through"}}>{fmt(p.amount)}</div>
+                )}
+              </div>
+
+              {/* Butonlar */}
+              <div style={{display:"flex",gap:4,flexShrink:0}}>
+                {!p.paid && (
+                  <button onClick={()=>markPaid(p)}
+                    style={{background:"#10b98122",border:"1px solid #10b98144",color:"#10b981",borderRadius:6,padding:"3px 8px",cursor:"pointer",fontSize:11,whiteSpace:"nowrap"}}>
+                    ✓ Ödendi
+                  </button>
+                )}
+                {p.paid && (
+                  <button onClick={()=>markUnpaid(p)}
+                    style={{background:"#1e2d45",border:"none",color:"#6b7280",borderRadius:6,padding:"3px 8px",cursor:"pointer",fontSize:11}}>
+                    Geri Al
+                  </button>
+                )}
+                <button onClick={()=>exportToCalendar(p)}
+                  title="Takvime Ekle (.ics)"
+                  style={{background:"#1e2d45",border:"none",color:"#a78bfa",borderRadius:6,padding:"3px 8px",cursor:"pointer",fontSize:13}}>
+                  📅
+                </button>
+                <button onClick={async()=>{if(confirm("Sil?")){await deleteRow("payment_schedule",p.id);setPayments(prev=>prev.filter(x=>x.id!==p.id))}}}
+                  style={{background:"none",border:"none",color:"#4b5563",cursor:"pointer",padding:"3px"}}>
+                  <Icon name="trash" size={12}/>
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Manuel ekleme formu */}
+      {addMode && (
+        <div style={{background:"#0a1628",border:"1px solid #1e3a5f",borderRadius:10,padding:"1rem",marginBottom:"1rem"}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 140px 150px",gap:"0.65rem",alignItems:"end"}}>
+            <Input label="Açıklama" value={newPayment.description}
+              onChange={e=>setNewPayment(p=>({...p,description:e.target.value}))}
+              placeholder="1. Vekalet Ücreti Taksiti"/>
+            <Input label="Tutar (₺)" type="number" value={newPayment.amount}
+              onChange={e=>setNewPayment(p=>({...p,amount:e.target.value}))}
+              placeholder="10000"/>
+            <Input label="Vade Tarihi" type="date" value={newPayment.due_date}
+              onChange={e=>setNewPayment(p=>({...p,due_date:e.target.value}))}/>
+          </div>
+          <div style={{display:"flex",gap:"0.5rem",marginTop:"0.5rem"}}>
+            <Btn small onClick={addPayment}>Ekle</Btn>
+            <Btn small variant="ghost" onClick={()=>setAddMode(false)}>İptal</Btn>
+          </div>
+        </div>
+      )}
+
+      {/* Alt butonlar */}
+      <div style={{display:"flex",gap:"0.65rem",flexWrap:"wrap",justifyContent:"space-between",alignItems:"center"}}>
+        <div style={{display:"flex",gap:"0.65rem"}}>
+          <Btn small onClick={()=>setAddMode(true)}><Icon name="plus" size={13}/> Manuel Ekle</Btn>
+          <Btn small variant="ai" onClick={extractFromDocs}>
+            {extracting ? "⏳ Çıkarılıyor..." : "🤖 Belgeden Çıkar"}
+          </Btn>
+        </div>
+        <Btn small variant="ghost" onClick={onClose}>Kapat</Btn>
+      </div>
+    </Modal>
+  )
+}
