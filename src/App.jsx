@@ -903,8 +903,18 @@ function UserManagementModal({ currentUser, onClose }) {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState("");
 
-  const ROLE_LABELS = { admin:"Admin (Tam Yetkili)", full:"Avukat (Tam Yetkili)", limited:"Avukat (Kısıtlı)" };
-  const ROLE_COLORS = { admin:"#e2c97e", full:"#10b981", limited:"#60a5fa" };
+  const ROLE_LABELS = {
+    admin:     "👑 Admin",
+    senior:    "⭐ Kıdemli Avukat",
+    lawyer:    "⚖️ Avukat",
+    assistant: "📋 Asistan"
+  };
+  const ROLE_COLORS = {
+    admin:     "#e2c97e",
+    senior:    "#10b981",
+    lawyer:    "#60a5fa",
+    assistant: "#a78bfa"
+  };
 
   useEffect(()=>{
     supabase.from("profiles").select("*").order("created_at").then(({data})=>{ if(data) setUsers(data); });
@@ -961,9 +971,10 @@ function UserManagementModal({ currentUser, onClose }) {
             <label style={{ display:"block", fontSize:11, color:"#9ca3af", marginBottom:5, letterSpacing:"0.06em", textTransform:"uppercase" }}>Yetki Seviyesi</label>
             <select value={role} onChange={e=>setRole(e.target.value)}
               style={{ width:"100%", background:"#0d1420", border:"1px solid #1e2d45", borderRadius:8, color:"#e5e7eb", padding:"0.55rem 0.75rem", fontSize:13, outline:"none", boxSizing:"border-box" }}>
-              <option value="full">Avukat — Tam Yetkili (her şeyi görür)</option>
-              <option value="limited">Avukat — Kısıtlı (sadece davalar)</option>
-              <option value="admin">Admin — Tam Yetkili + Kullanıcı Yönetimi</option>
+              <option value="assistant">📋 Asistan — Davaları görür, düzenleyemez</option>
+              <option value="lawyer">⚖️ Avukat — Davaları görür ve düzenler, finansalları görür</option>
+              <option value="senior">⭐ Kıdemli Avukat — Tüm işlemler, dava silebilir</option>
+              <option value="admin">👑 Admin — Tam yetki + kullanıcı yönetimi</option>
             </select>
           </div>
         </div>
@@ -978,7 +989,7 @@ function UserManagementModal({ currentUser, onClose }) {
         {users.map(u=>(
           <div key={u.id} style={{ display:"flex", alignItems:"center", gap:"1rem", padding:"0.75rem", background:"#0a1628", borderRadius:10, marginBottom:"0.5rem", border:"1px solid #1e2d45" }}>
             <div style={{ width:36, height:36, borderRadius:"50%", background:ROLE_COLORS[u.role]+"33", border:`2px solid ${ROLE_COLORS[u.role]}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, flexShrink:0 }}>
-              {u.role==="admin"?"👑":u.role==="full"?"⚖️":"🔒"}
+              {ROLE_LABELS[u.role]||u.role}
             </div>
             <div style={{ flex:1, minWidth:0 }}>
               <div style={{ fontSize:13, color:"#e5e7eb", fontWeight:600 }}>{u.full_name||"—"}</div>
@@ -990,9 +1001,10 @@ function UserManagementModal({ currentUser, onClose }) {
               <div style={{ display:"flex", gap:6 }}>
                 <select value={u.role} onChange={e=>updateRole(u.id,e.target.value)}
                   style={{ background:"#0d1420", border:"1px solid #1e2d45", borderRadius:6, color:"#e5e7eb", padding:"0.3rem 0.5rem", fontSize:11, outline:"none", cursor:"pointer" }}>
-                  <option value="admin">Admin</option>
-                  <option value="full">Tam Yetkili</option>
-                  <option value="limited">Kısıtlı</option>
+                  <option value="admin">👑 Admin</option>
+                  <option value="senior">⭐ Kıdemli Avukat</option>
+                  <option value="lawyer">⚖️ Avukat</option>
+                  <option value="assistant">📋 Asistan</option>
                 </select>
                 <button onClick={()=>deactivate(u.id)}
                   style={{ background:"#1e2d45", border:"none", color:"#f87171", borderRadius:6, padding:"0.3rem 0.5rem", cursor:"pointer", fontSize:11 }}>
@@ -1068,9 +1080,26 @@ export default function AvukatApp() {
 
 // ─── ANA PANEL (auth sonrası) ──────────────────────────────────────
 function MainPanel({ session, profile }) {
-  const isAdmin   = profile.role === "admin";
-  const isFull    = profile.role === "full" || isAdmin;
-  const isLimited = profile.role === "limited";
+  // ── YETKİ SİSTEMİ ─────────────────────────────────────────────
+  const role = profile.role || 'assistant';
+  const isAdmin     = role === "admin";
+  const isSenior    = role === "senior" || isAdmin;      // Kıdemli Avukat
+  const isLawyer    = role === "lawyer" || isSenior;     // Avukat
+  const isAssistant = role === "assistant";
+
+  // Yetki kontrolleri
+  const can = {
+    viewCases:      true,                          // herkes
+    editCases:      isLawyer,                      // avukat+
+    deleteCases:    isSenior,                      // kıdemli+
+    viewFinance:    isLawyer,                      // avukat+
+    addFinance:     isSenior,                      // kıdemli+
+    viewAvukatlar:  true,                          // herkes
+    addLawyer:      isAdmin,                       // sadece admin
+    deleteLawyer:   isAdmin,                       // sadece admin
+    manageUsers:    isAdmin,                       // sadece admin
+    deleteNeedsApproval: role === "lawyer",        // avukat silmek için admin onayı
+  };
   const [tab,setTab]=useState("dashboard");
   const [cases,setCases]=useState([]);
   const [expenses,setExpenses]=useState([]);
@@ -1173,13 +1202,13 @@ function MainPanel({ session, profile }) {
   };
 
   const allTabs=[
-    {id:"dashboard",label:"Genel Bakış",icon:"dashboard", roles:["admin","full","limited"]},
-    {id:"cases",    label:"Davalar",    icon:"scale",      roles:["admin","full","limited"]},
-    {id:"income",   label:"Gelir",      icon:"income",     roles:["admin","full"]},
-    {id:"expense",  label:"Giderler",   icon:"expense",    roles:["admin","full"]},
-    {id:"lawyers",  label:"Avukatlar",  icon:"lawyers",    roles:["admin","full","limited"]},
+    {id:"dashboard",label:"Genel Bakış",icon:"dashboard", show: true},
+    {id:"cases",    label:"Davalar",    icon:"scale",      show: true},
+    {id:"income",   label:"Gelir",      icon:"income",     show: can.viewFinance},
+    {id:"expense",  label:"Giderler",   icon:"expense",    show: can.viewFinance},
+    {id:"lawyers",  label:"Avukatlar",  icon:"lawyers",    show: can.viewAvukatlar},
   ];
-  const tabs = allTabs.filter(t => t.roles && Array.isArray(t.roles) && t.roles.includes(profile?.role || 'limited'));
+  const tabs = allTabs.filter(t => t.show);
 
   if(!ready) return <div style={{...S.app,alignItems:"center",justifyContent:"center"}}><div style={{color:"#e2c97e"}}>Yükleniyor...</div></div>;
 
@@ -1200,11 +1229,11 @@ function MainPanel({ session, profile }) {
           🎤 Asistan
         </button>
         <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
-          <Badge color={isAdmin?"#e2c97e":isFull?"#10b981":"#60a5fa"}>
-            {isAdmin?"👑 Admin":isFull?"⚖️ Tam Yetkili":"🔒 Kısıtlı"}
+          <Badge color={isAdmin?"#e2c97e":isSenior?"#10b981":isLawyer?"#60a5fa":"#a78bfa"}>
+            {isAdmin?"👑 Admin":isSenior?"⭐ Kıdemli Avukat":isLawyer?"⚖️ Avukat":"📋 Asistan"}
           </Badge>
           <span style={{fontSize:12,color:"#6b7280",whiteSpace:"nowrap"}}>{profile.full_name||session.user.email}</span>
-          {isAdmin&&(
+          {can.manageUsers&&(
             <button onClick={()=>setModal({type:"userManagement"})}
               style={{background:"#1e2d45",border:"none",color:"#e2c97e",borderRadius:7,padding:"0.3rem 0.65rem",cursor:"pointer",fontSize:12,whiteSpace:"nowrap"}}>
               👥 Kullanıcılar
@@ -1222,10 +1251,10 @@ function MainPanel({ session, profile }) {
         <div style={S.header}>
           <h1 style={{margin:0,fontFamily:"'Playfair Display',serif",color:"#e2c97e",fontSize:"1.15rem"}}>{tabs.find(t=>t.id===tab)?.label}</h1>
           <div style={{display:"flex",gap:"0.6rem",flexWrap:"wrap"}}>
-            {tab==="cases"  && <Btn onClick={()=>setModal({type:"addCase"})}><Icon name="plus" size={14}/> Yeni Dava</Btn>}
-            {tab==="income" && isFull && <><Btn onClick={()=>setModal({type:"smm"})}><Icon name="doc" size={14}/> S.M. Makbuzu</Btn><Btn variant="ghost" onClick={()=>setModal({type:"otherIncome"})}><Icon name="plus" size={14}/> Diğer Gelir</Btn></>}
-            {tab==="expense"&& isFull && <Btn onClick={()=>setModal({type:"addExpense"})}><Icon name="plus" size={14}/> Gider Ekle</Btn>}
-            {tab==="lawyers"&& isFull && <Btn onClick={()=>setModal({type:"addLawyer"})}><Icon name="plus" size={14}/> Avukat Ekle</Btn>}
+            {tab==="cases"   && can.editCases  && <Btn onClick={()=>setModal({type:"addCase"})}><Icon name="plus" size={14}/> Yeni Dava</Btn>}
+            {tab==="income"  && can.addFinance  && <><Btn onClick={()=>setModal({type:"smm"})}><Icon name="doc" size={14}/> S.M. Makbuzu</Btn><Btn variant="ghost" onClick={()=>setModal({type:"otherIncome"})}><Icon name="plus" size={14}/> Diğer Gelir</Btn></>}
+            {tab==="expense" && can.addFinance  && <Btn onClick={()=>setModal({type:"addExpense"})}><Icon name="plus" size={14}/> Gider Ekle</Btn>}
+            {tab==="lawyers" && can.addLawyer   && <Btn onClick={()=>setModal({type:"addLawyer"})}><Icon name="plus" size={14}/> Avukat Ekle</Btn>}
           </div>
         </div>
 
@@ -1377,14 +1406,27 @@ function MainPanel({ session, profile }) {
                         </div>
                       </div>
                       <div style={{display:"flex",flexDirection:"column",gap:4}}>
-                        <Btn small variant="ai" onClick={()=>setModal({type:"aiDoc",data:c})}><Icon name="doc" size={12}/> Dilekçe</Btn>
+                        {can.editCases && <Btn small variant="ai" onClick={()=>setModal({type:"aiDoc",data:c})}><Icon name="doc" size={12}/> Dilekçe</Btn>}
                         <Btn small variant="ai" onClick={()=>setModal({type:"aiAnalyze",data:c})}><Icon name="search" size={12}/> AI Yorum</Btn>
                         <Btn small variant="ghost" onClick={()=>setModal({type:"documents",data:c})} style={{color:"#60a5fa",borderColor:"#1e3a5f"}}>📁 Belgeler</Btn>
                         {c.client&&<Btn small variant="ghost" onClick={()=>setModal({type:"clientReport",client:c.client})}><Icon name="report" size={12}/> Rapor</Btn>}
                       </div>
                       <div style={{display:"flex",gap:4}}>
-                        <button onClick={()=>setModal({type:"editCase",data:c})} style={{background:"#1e2d45",border:"none",color:"#e2c97e",borderRadius:7,width:30,height:30,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}><Icon name="edit" size={12}/></button>
-                        <button onClick={()=>{if(confirm("Sil?")){setCases(p=>p.filter(x=>x.id!==c.id));showToast("Dava silindi.");}}} style={{background:"#1e2d45",border:"none",color:"#f87171",borderRadius:7,width:30,height:30,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}><Icon name="trash" size={12}/></button>
+                        {can.editCases && (
+                          <button onClick={()=>setModal({type:"editCase",data:c})}
+                            style={{background:"#1e2d45",border:"none",color:"#e2c97e",borderRadius:7,width:30,height:30,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}} title="Düzenle">
+                            <Icon name="edit" size={12}/>
+                          </button>
+                        )}
+                        {can.deleteCases && (
+                          <button onClick={()=>{
+                            if(confirm("Bu davayı silmek istediğinizden emin misiniz?")) {
+                              deleteCase(c.id);
+                            }
+                          }} style={{background:"#1e2d45",border:"none",color:"#f87171",borderRadius:7,width:30,height:30,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}} title="Sil">
+                            <Icon name="trash" size={12}/>
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1505,8 +1547,8 @@ function MainPanel({ session, profile }) {
                           </div>
                         </div>
                         <div style={{display:"flex",gap:5}}>
-                          <button onClick={()=>setModal({type:"editLawyer",data:l})} style={{background:"#1e2d45",border:"none",color:"#e2c97e",borderRadius:7,width:28,height:28,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}><Icon name="edit" size={12}/></button>
-                          <button onClick={async()=>{if(confirm(`${l.name} silinsin mi?`)){await deleteRow("lawyers",l.id);setLawyers(p=>p.filter(x=>x.id!==l.id));showToast("Avukat silindi.");}}} style={{background:"#1e2d45",border:"none",color:"#f87171",borderRadius:7,width:28,height:28,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}><Icon name="trash" size={12}/></button>
+                          {can.addLawyer && <button onClick={()=>setModal({type:"editLawyer",data:l})} style={{background:"#1e2d45",border:"none",color:"#e2c97e",borderRadius:7,width:28,height:28,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}} title="Düzenle"><Icon name="edit" size={12}/></button>}
+                          {can.deleteLawyer && <button onClick={async()=>{if(confirm(`${l.name} silinsin mi?`)){await deleteRow("lawyers",l.id);setLawyers(p=>p.filter(x=>x.id!==l.id));showToast("Avukat silindi.");}}} style={{background:"#1e2d45",border:"none",color:"#f87171",borderRadius:7,width:28,height:28,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}} title="Sil"><Icon name="trash" size={12}/></button>}
                         </div>
                       </div>
                       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"0.4rem",marginBottom:"0.75rem"}}>
