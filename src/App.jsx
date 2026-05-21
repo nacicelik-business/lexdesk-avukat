@@ -1265,7 +1265,7 @@ function MainPanel({ session, profile }) {
             <div style={{display:"flex",flexDirection:"column",gap:"1.5rem"}}>
               <div style={{display:"flex",gap:"0.75rem",flexWrap:"wrap"}}>
                 {[{l:"Aktif Dava",v:activeCases.length,c:"#60a5fa",all:true},{l:"Beklenen Gelir",v:fmt(totalExpected),c:"#e2c97e",all:false},{l:"Tahsil Edilen",v:fmt(totalCollected),c:"#10b981",all:false},{l:"Toplam Gider",v:fmt(totalExpenses),c:"#f87171",all:false},{l:"Aktif Risk",v:fmt(totalRisk),c:"#fb923c",all:true},{l:"Net Kâr",v:fmt(totalCollected-totalExpenses),c:totalCollected-totalExpenses>=0?"#10b981":"#f87171",all:false},{l:"İş Saati",v:totalHours+" s",c:"#a78bfa",all:true}]
-                  .filter(s=>s.all||isFull).map(s=>(
+                  .filter(s=>s.all||can.viewFinance).map(s=>(
                   <div key={s.l} style={{...S.sc,minWidth:110}}>
                     <div style={{fontSize:10,color:"#6b7280",letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:5}}>{s.l}</div>
                     <div style={{fontSize:17,fontWeight:800,color:s.c}}>{s.v}</div>
