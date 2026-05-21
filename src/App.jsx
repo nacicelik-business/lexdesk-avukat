@@ -1194,7 +1194,11 @@ function MainPanel({ session, profile }) {
         <div style={{width:1,height:22,background:"#1e2d45",flexShrink:0,marginRight:4}}/>
         {tabs.map(t=><button key={t.id} style={S.ni(tab===t.id)} onClick={()=>setTab(t.id)}><Icon name={t.icon} size={14}/>{t.label}</button>)}
         <div style={{flex:1}}/>
-        {/* Rol badge */}
+        {/* Akıllı Asistan */}
+        <button onClick={()=>setModal({type:"assistant"})}
+          style={{background:"linear-gradient(135deg,#1e3a5f,#2d5a8e)",border:"1px solid #2d5a8e",color:"#93c5fd",borderRadius:8,padding:"0.35rem 0.85rem",fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",gap:5,flexShrink:0,marginRight:6}}>
+          🎤 Asistan
+        </button>
         <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
           <Badge color={isAdmin?"#e2c97e":isFull?"#10b981":"#60a5fa"}>
             {isAdmin?"👑 Admin":isFull?"⚖️ Tam Yetkili":"🔒 Kısıtlı"}
@@ -1572,6 +1576,7 @@ function MainPanel({ session, profile }) {
       {modal?.type==="aiAnalyze"&&<AIAssistant caseData={modal.data} mode="analyze" onClose={()=>setModal(null)}/>}
       {modal?.type==="userManagement"&&<UserManagementModal currentUser={profile} onClose={()=>setModal(null)}/>}
       {modal?.type==="documents"&&<DocumentsModal caseData={modal.data} userId={session.user.id} onClose={()=>setModal(null)}/>}
+      {modal?.type==="assistant"&&<SmartAssistant cases={cases} incomes={incomes} expenses={expenses} lawyers={lawyers} onClose={()=>setModal(null)}/>}
 
       {/* TOAST */}
       {toast&&<div style={{position:"fixed",bottom:"2rem",right:"2rem",background:"#0d1420",border:"1px solid #10b981",borderRadius:10,padding:"0.75rem 1.25rem",color:"#10b981",fontSize:13,fontWeight:600,display:"flex",alignItems:"center",gap:8,boxShadow:"0 8px 30px rgba(0,0,0,0.5)",zIndex:2000}}><Icon name="check" size={14}/>{toast}</div>}
@@ -1579,7 +1584,214 @@ function MainPanel({ session, profile }) {
   );
 }
 
-// ─── BELGELER MODALI ──────────────────────────────────────────────
+// ─── AKILLI ASISTAN ───────────────────────────────────────────────
+function SmartAssistant({ cases, incomes, expenses, lawyers, onClose }) {
+  const [query, setQuery] = useState("")
+  const [messages, setMessages] = useState([
+    { role:"assistant", text:"Merhaba! Size nasıl yardımcı olabilirim? Dava bilgileri, duruşma tarihleri, müvekkil sorguları veya finansal bilgiler hakkında sorabilirsiniz." }
+  ])
+  const [loading, setLoading] = useState(false)
+  const [listening, setListening] = useState(false)
+  const messagesEndRef = useState(null)
+
+  // Sesli tanıma
+  const startListening = () => {
+    if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+      alert('Tarayıcınız sesli tanımayı desteklemiyor. Chrome kullanın.')
+      return
+    }
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition
+    const recognition = new SR()
+    recognition.lang = 'tr-TR'
+    recognition.interimResults = false
+    recognition.onstart = () => setListening(true)
+    recognition.onend = () => setListening(false)
+    recognition.onresult = (e) => {
+      const transcript = e.results[0][0].transcript
+      setQuery(transcript)
+    }
+    recognition.onerror = () => setListening(false)
+    recognition.start()
+  }
+
+  // Sesli okuma
+  const speak = (text) => {
+    if (!('speechSynthesis' in window)) return
+    window.speechSynthesis.cancel()
+    const utt = new SpeechSynthesisUtterance(text)
+    utt.lang = 'tr-TR'
+    utt.rate = 1.0
+    window.speechSynthesis.speak(utt)
+  }
+
+  // Akıllı veri hazırlama — sadece ilgili veriyi gönder
+  const prepareContext = (q) => {
+    const ql = q.toLowerCase()
+
+    // İsim araması
+    const nameMatch = lawyers.find(l => ql.includes(l.name.toLowerCase().split(' ')[0].toLowerCase()))
+    const clientMatch = [...new Set(cases.map(c=>c.client).filter(Boolean))].find(c => c && ql.includes(c.toLowerCase().split(' ')[0]))
+
+    // İlgili davaları filtrele
+    let relevantCases = cases
+    if (nameMatch) {
+      relevantCases = cases.filter(c =>
+        String(c.owner_lawyer_id||c.ownerLawyerId)===String(nameMatch.id) ||
+        String(c.handler_lawyer_id||c.handlerLawyerId)===String(nameMatch.id)
+      )
+    } else if (clientMatch) {
+      relevantCases = cases.filter(c => c.client === clientMatch)
+    } else if (ql.includes('duruşma') || ql.includes('tarih') || ql.includes('ne zaman')) {
+      relevantCases = cases.filter(c => c.next_date || c.nextDate).slice(0, 10)
+    } else if (ql.includes('risk') || ql.includes('tutar') || ql.includes('ücret')) {
+      relevantCases = cases.filter(c => (c.risk_amount||c.riskAmount) > 0).slice(0, 10)
+    } else {
+      relevantCases = cases.slice(0, 15) // max 15 dava
+    }
+
+    // Özet veri hazırla
+    const casesSummary = relevantCases.map(c => ({
+      başlık: c.title,
+      müvekkil: c.client,
+      tür: c.type,
+      aşama: c.stage,
+      mahkeme: c.court,
+      sonrakiDuruşma: c.next_date || c.nextDate || "—",
+      beklenenÜcret: c.expected_fee || c.expectedFee || 0,
+      riskTutarı: c.risk_amount || c.riskAmount || 0,
+      kazanmaİhtimali: (c.win_rate || c.winRate || 50) + "%",
+      davacı: c.plaintiff,
+      davalı: c.defendant,
+    }))
+
+    // Finansal özet (sadece gerekirse)
+    let financialSummary = null
+    if (ql.includes('gelir') || ql.includes('tahsilat') || ql.includes('gider') || ql.includes('kâr')) {
+      financialSummary = {
+        toplamTahsilat: incomes.reduce((s,i)=>s+(+i.amount||0),0),
+        toplamGider: expenses.reduce((s,e)=>s+(+e.amount||0),0),
+        netKar: incomes.reduce((s,i)=>s+(+i.amount||0),0) - expenses.reduce((s,e)=>s+(+e.amount||0),0),
+      }
+    }
+
+    return { casesSummary, financialSummary, toplamDava: cases.length, aktifDava: cases.filter(c=>c.stage!=="Kapandı").length }
+  }
+
+  const sendMessage = async () => {
+    if (!query.trim() || loading) return
+    const userMsg = query.trim()
+    setQuery("")
+    setMessages(p => [...p, { role:"user", text:userMsg }])
+    setLoading(true)
+
+    try {
+      const context = prepareContext(userMsg)
+
+      const systemPrompt = `Sen bir avukatlık bürosu asistanısın. Sana verilen dava verileri üzerinden soruları cevapla.
+Kısa, net ve Türkçe cevap ver. Para tutarlarını Türk Lirası olarak belirt.
+Tarihler için gün.ay.yıl formatını kullan.
+Eğer bilgi yoksa "Bu konuda kayıtlı veri bulunmuyor" de.`
+
+      const userContent = `Dava Verileri:
+${JSON.stringify(context, null, 2)}
+
+Soru: ${userMsg}`
+
+      const res = await fetch('/api/claude', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-5',
+          max_tokens: 400,
+          system: systemPrompt,
+          messages: [{ role:'user', content: userContent }]
+        })
+      })
+      const data = await res.json()
+      const answer = data.content?.filter(b=>b.type==='text').map(b=>b.text).join('') || 'Cevap alınamadı.'
+
+      setMessages(p => [...p, { role:"assistant", text:answer }])
+      speak(answer)
+    } catch(e) {
+      setMessages(p => [...p, { role:"assistant", text:"Hata oluştu: " + e.message }])
+    }
+    setLoading(false)
+  }
+
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(10,14,23,0.92)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:"1rem"}}>
+      <div style={{background:"#111827",border:"1px solid #1e2d45",borderRadius:16,width:"100%",maxWidth:600,height:"80vh",display:"flex",flexDirection:"column",boxShadow:"0 25px 60px rgba(0,0,0,0.7)"}}>
+
+        {/* Header */}
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"1.1rem 1.5rem",borderBottom:"1px solid #1e2d45",flexShrink:0}}>
+          <div>
+            <h3 style={{margin:0,color:"#e2c97e",fontFamily:"'Playfair Display',serif",fontSize:"1rem"}}>🎤 Akıllı Asistan</h3>
+            <p style={{margin:"2px 0 0",fontSize:11,color:"#4b5563"}}>Sesli veya yazarak sorun — dava bilgilerinden cevap bulur</p>
+          </div>
+          <button onClick={()=>{window.speechSynthesis?.cancel();onClose();}} style={{background:"none",border:"none",color:"#6b7280",cursor:"pointer",padding:4}}>✕</button>
+        </div>
+
+        {/* Mesajlar */}
+        <div style={{flex:1,overflowY:"auto",padding:"1rem 1.5rem",display:"flex",flexDirection:"column",gap:"0.75rem"}}>
+          {messages.map((m,i)=>(
+            <div key={i} style={{display:"flex",justifyContent:m.role==="user"?"flex-end":"flex-start"}}>
+              <div style={{
+                maxWidth:"80%",
+                background:m.role==="user"?"linear-gradient(135deg,#1e3a5f,#2d5a8e)":"#0d1420",
+                border:`1px solid ${m.role==="user"?"#2d5a8e":"#1e2d45"}`,
+                borderRadius:m.role==="user"?"12px 12px 2px 12px":"12px 12px 12px 2px",
+                padding:"0.65rem 1rem",
+                fontSize:13,
+                color:m.role==="user"?"#bfdbfe":"#e5e7eb",
+                lineHeight:1.6,
+              }}>
+                {m.text}
+                {m.role==="assistant" && (
+                  <button onClick={()=>speak(m.text)}
+                    style={{background:"none",border:"none",color:"#4b5563",cursor:"pointer",fontSize:14,marginLeft:8,verticalAlign:"middle"}}>
+                    🔊
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+          {loading&&(
+            <div style={{display:"flex",justifyContent:"flex-start"}}>
+              <div style={{background:"#0d1420",border:"1px solid #1e2d45",borderRadius:"12px 12px 12px 2px",padding:"0.65rem 1rem",fontSize:13,color:"#6b7280"}}>
+                ⏳ Yanıt hazırlanıyor...
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Input */}
+        <div style={{padding:"1rem 1.5rem",borderTop:"1px solid #1e2d45",flexShrink:0}}>
+          <div style={{display:"flex",gap:"0.5rem"}}>
+            {/* Mikrofon */}
+            <button onClick={startListening}
+              style={{background:listening?"#7f1d1d":"#1e2d45",border:`1px solid ${listening?"#991b1b":"#2d4163"}`,color:listening?"#fca5a5":"#9ca3af",borderRadius:8,width:42,height:42,cursor:"pointer",fontSize:18,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+              {listening?"⏹":"🎤"}
+            </button>
+            <input
+              value={query}
+              onChange={e=>setQuery(e.target.value)}
+              onKeyDown={e=>e.key==="Enter"&&sendMessage()}
+              placeholder="Soru sorun... (ör: Ahmet Yılmaz'ın duruşması ne zaman?)"
+              style={{flex:1,background:"#0d1420",border:"1px solid #1e2d45",borderRadius:8,color:"#e5e7eb",padding:"0.6rem 0.85rem",fontSize:13,outline:"none"}}
+            />
+            <button onClick={sendMessage} disabled={loading||!query.trim()}
+              style={{background:"linear-gradient(135deg,#b8962e,#e2c97e)",border:"none",color:"#0a0e17",fontWeight:700,borderRadius:8,padding:"0 1rem",cursor:"pointer",flexShrink:0,opacity:!query.trim()?0.5:1}}>
+              Sor
+            </button>
+          </div>
+          <p style={{margin:"6px 0 0",fontSize:11,color:"#374151",textAlign:"center"}}>
+            🎤 Mikrofon → konuş → otomatik yazar · 🔊 ikonuna tıkla → sesli okur
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
 function DocumentsModal({ caseData, userId, onClose }) {
   const [docs, setDocs] = useState([])
   const [uploading, setUploading] = useState(false)
@@ -1595,8 +1807,10 @@ function DocumentsModal({ caseData, userId, onClose }) {
     const file = e.target.files[0]
     if (!file) return
     setUploading(true)
+
     const result = await uploadDocument(caseData.id, file)
     if (result) {
+      // Önce kaydet
       const row = await insertRow("documents", {
         case_id: caseData.id,
         name: file.name,
@@ -1605,10 +1819,53 @@ function DocumentsModal({ caseData, userId, onClose }) {
         file_size: file.size,
         uploaded_by: userId,
       })
-      if (row) setDocs(p => [row, ...p])
+      if (row) {
+        setDocs(p => [row, ...p])
+
+        // Arka planda otomatik özetle (bir kez, sonra sakla)
+        summarizeDocument(file, row.id)
+      }
     }
     setUploading(false)
     e.target.value = ""
+  }
+
+  const summarizeDocument = async (file, docId) => {
+    try {
+      const isPDF = file.name.toLowerCase().endsWith('.pdf')
+      let messages = []
+
+      if (isPDF) {
+        const base64 = await new Promise(resolve => {
+          const r = new FileReader()
+          r.onload = e => resolve(e.target.result.split(',')[1])
+          r.readAsDataURL(file)
+        })
+        messages = [{ role:'user', content:[
+          { type:'document', source:{ type:'base64', media_type:'application/pdf', data:base64 }},
+          { type:'text', text:'Bu hukuki belgeyi özetle. Şunları çıkar: taraflar, konu, önemli tarihler, tutarlar, kararlar, riskler. Kısa ve net tut (maks 300 kelime).' }
+        ]}]
+      } else {
+        const text = await new Promise(resolve => {
+          const r = new FileReader()
+          r.onload = e => resolve(e.target.result)
+          r.readAsText(file, 'UTF-8')
+        })
+        messages = [{ role:'user', content:`Şu belgeyi özetle (maks 300 kelime): ${text.substring(0,5000)}` }]
+      }
+
+      const res = await fetch('/api/claude', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ model:'claude-sonnet-4-5', max_tokens:500, messages })
+      })
+      const data = await res.json()
+      const summary = data.content?.filter(b=>b.type==='text').map(b=>b.text).join('') || ''
+
+      if (summary) {
+        await updateRow('documents', docId, { ai_summary: summary })
+        setDocs(p => p.map(d => d.id===docId ? {...d, ai_summary:summary} : d))
+      }
+    } catch(e) { console.error('Özetleme hatası:', e) }
   }
 
   const handleDelete = async (doc) => {
